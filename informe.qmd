@@ -1,18 +1,144 @@
 ---
 title: "Jácome-Navarrete-Juan-PEC1"
 author: "Juan C. Jácome Navarrete"
-date: "today"
-format: pdf
+date: today
+format:
+  pdf:
+    toc: true
+    number-sections: true
 editor: visual
-toc: true
-number-sections: true
 ---
 
-
-# Tabla de contenidos
-
-::: {.contents}
+::: contents
 :::
+
+```{r setup, include=FALSE, warning = FALSE, message=FALSE}
+  knitr::opts_chunk$set(echo = TRUE)
+### CARGAR LIBRERIAS
+library(metabolomicsWorkbenchR)
+library(POMA)
+library(SummarizedExperiment)
+library(readr)    
+library(tibble)    
+library(S4Vectors)  
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(scales)
+library(ggrepel)
+library(pheatmap)
+library(RColorBrewer)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+```
+
+```{r funciones, include=FALSE, warning = FALSE, message=FALSE}
+
+# Función para calcular abundancias promedio de un objeto SummarizedExperiment
+calcular_abundancias_promedio <- function(se_objeto) {
+  # Convertir a formato largo
+  matriz_df <- as.data.frame(assay(se_objeto)) %>%
+    rownames_to_column(var = "metabolito") %>%
+  pivot_longer(-metabolito, names_to = "Muestra", values_to = "intensidad") %>%
+    # Añadir la fracción de leche desde colData
+    left_join(as.data.frame(colData(se_objeto)) %>% 
+                rownames_to_column("Muestra"),
+              by = "Muestra")
+  
+  # Calcular media y porcentaje en un solo paso
+  matriz_resumen <- matriz_df %>%
+    group_by(Milk_fraction, metabolito) %>%
+    summarise(
+      media = mean(intensidad), #calcular la media
+      .groups = "drop_last" # no mostrar el último grupo
+    ) %>%
+    mutate(porcentaje = media / sum(media) * 100) %>% #calcular el porcentaje
+    ungroup() # desagrupar
+  
+  return(matriz_resumen)
+}
+
+calcular_abundancia_por_sujeto <- function(se_objeto) {
+  # Convertir a formato largo
+  matriz_df <- as.data.frame(assay(se_objeto)) %>% 
+    rownames_to_column(var = "metabolito") %>% 
+  pivot_longer(-metabolito, names_to = "Muestra", values_to = "intensidad") %>% 
+    # Añadir la fracción de leche desde colData
+    left_join(as.data.frame(colData(se_objeto)) %>% 
+                rownames_to_column("Muestra"),
+              by = "Muestra")
+  
+  # Calcular media por sujeto y fracción
+  matriz_resumen <- matriz_df %>% 
+    # Agrupar por sujeto, fracción y metabolito
+    group_by(sujeto, Milk_fraction, metabolito) %>% 
+    summarise(media = mean(intensidad), .groups = "drop") # Calcular media
+  
+  # Calcular porcentaje relativo dentro de cada fracción y sujeto
+  matriz_resumen <- matriz_resumen %>%
+    group_by(sujeto, Milk_fraction) %>% # Agrupar por sujeto y fracción
+    mutate(porcentaje = media / sum(media) * 100) %>% # Calcular porcentaje
+    ungroup()
+  
+  return(matriz_resumen)
+}
+
+
+# Función para crear SummarizedExperiment agrupado
+agrupar_por_clase <- function(se, clase) {
+  # Extraer matriz y metadatos
+  matriz <- assay(se)
+  rowdata <- as.data.frame(rowData(se)) 
+  
+  # Agregar la clase deseada como columna de la matriz
+  matriz_df <- as.data.frame(matriz) %>%
+    mutate(clase = rowdata[[clase]]) %>% # Agregar la clase
+    group_by(clase) %>% # Agrupar por clase
+    summarise(across(everything(), sum, na.rm = TRUE)) %>% # Sumar por clase
+    filter(!is.na(clase)) %>% # Eliminar NA
+    column_to_rownames("clase") # Usar la clase como fila
+  
+  # Crear nuevo SE con la matriz agrupada
+  SummarizedExperiment(
+    assays = list(abundancia = as.matrix(matriz_df)),
+    colData = colData(se),
+    rowData = DataFrame(nombre_clase = rownames(matriz_df))
+  )
+}
+
+#funcion para seleccionar los top n metabolitos y agrupar el resto "otros"
+seleccionar_top_y_otros <- function(se_imputed, top_n = 20) {
+  matriz <- assay(se_imputed)
+  
+  # Sumar la abundancia total por fila (metabolito o clase)
+  suma_total <- rowSums(matriz)
+  
+  # Seleccionar los top_n más abundantes
+  top_elementos <- names(sort(suma_total, decreasing = TRUE))[1:top_n]
+  
+  # Dividir la matriz
+  matriz_top <- matriz[top_elementos, , drop = FALSE]
+  matriz_otros <- matriz[!rownames(matriz) %in% top_elementos, , drop = FALSE]
+  
+  # Sumar el resto como "Others"
+  fila_otros <- matrix(colSums(matriz_otros), nrow = 1,
+                       dimnames = list("Others", colnames(matriz)))
+  
+  # Combinar top + others
+  nueva_matriz <- rbind(matriz_top, fila_otros)
+  
+  # Crear nuevo rowData con los nombres nuevos
+  nueva_rowData <- DataFrame(nombre = rownames(nueva_matriz))
+  
+  # Crear el nuevo SummarizedExperiment
+  SummarizedExperiment(
+    assays = list(abundancia = nueva_matriz),
+    colData = colData(se),
+    rowData = nueva_rowData
+  )
+}
+```
 
 # Resumen
 
@@ -24,9 +150,23 @@ number-sections: true
 
 # Métodos
 
-## Dataset
+## Origen de los datos
 
 <!-- Fuente y descripción del dataset seleccionado. -->
+
+Para el análisis se seleccionó el dataset **ST000957**, titulado *"Global metabolomics of human milk fractions"*, disponible en Metabolomics Workbench. Este estudio fue realizado por la University of Florida y se realizó utilizando LC-MS (espectrometría de masas acoplada a cromatografía líquida) para la caracterización global de metabolitos en fracciones de leche humana. El conjunto de datos contiene información correspondiente a 12 muestras biológicas de la especie Homo sapiens. Para simplificar el análisis solo se tomo
+
+```{r query, warning = FALSE, message=FALSE}
+
+info_df <- as.data.frame(t(do_query('study','study_id','ST000957','summary')
+                           ))[1:6, , drop = FALSE]
+
+# Mostrar con kable
+knitr::kable(info_df, col.names = c("Campo", "Valor"), 
+             caption = "Resumen del estudio ST000957") %>%
+  kable_styling(latex_options = c("striped", "hold_position", "scale_down"),
+                position = "center", font_size = 10)
+```
 
 ## Estructura de los datos
 
@@ -45,6 +185,14 @@ number-sections: true
 <!-- Técnicas empleadas: PCA, clustering, boxplots, correlaciones, etc. -->
 
 # Resultados
+
+Lo primero se se realizó es el la construcción del *`SummarizedExperiment`*, para lo cual se importaron tres tablas.
+
+1.  El ensayo: esta matriz contenía en las columnas las muestras y las filas los metabolitos.
+2.  El colData: contiene información sobre las muestras, como la fracción de leche y el sujeto a quien pertenece. Debe coincidir ocn la matriz de ensayo.
+3.  El rowData: contiene información sobre los metabolitos. En este caso se trata de la clasificación de los metabolismos según el Metabolics Workbench.
+
+Además, se procedió a limpiar los datos, mantener solo las columnas deseadas
 
 ## Estadísticas descriptivas
 
@@ -70,4 +218,4 @@ number-sections: true
 
 <!-- Bibliografía (si aplica) y enlace al repositorio de GitHub -->
 
-- GitHub: [https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1](https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1)
+-   GitHub: <https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1>

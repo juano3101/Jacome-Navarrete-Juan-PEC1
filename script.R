@@ -16,6 +16,7 @@ library(scales)
 library(ggrepel)
 library(pheatmap)
 library(RColorBrewer)
+library(tidyr)
 library(knitr)
 
 # RESUMEN DEL ESTUDIO
@@ -40,7 +41,6 @@ se <- SummarizedExperiment(
   colData = coldata,
   rowData = rowdata
 )
-
 
 # CONSERVAR SOLO LAS COLUMAS QUE SE DESAN
 colData(se) <- colData(se)[, c("Milk_fraction", "sujeto")]
@@ -156,6 +156,7 @@ print(abundancia_frac)
 
 ### ABUNDANCIA ABSOLUTA PROMEDIO POR SUJETO
 
+# Función para calcular abundancias promedio por sujeto de un objeto SummarizedExperiment
 calcular_abundancia_por_sujeto <- function(se_objeto) {
   # Convertir a formato largo
   matriz_df <- as.data.frame(assay(se_objeto)) %>% 
@@ -401,6 +402,7 @@ abundancia_subclass_sujeto
 
 # FUNCION PARA SELECCIONAR LOS TOP N METABOLITOS Y AGRUPAR EL RESTO COMO "OTROS"
 
+# funcion para seleccionar los top n metabolitos y agrupar el resto como "otros"
 seleccionar_top_y_otros <- function(se_imputed, top_n = 20) {
   matriz <- assay(se_imputed)
   
