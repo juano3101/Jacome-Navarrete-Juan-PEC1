@@ -1,0 +1,13 @@
+	Subject_name	Milk_fraction
+BLS001A	BLS001A_fat	fat
+BLS002A	BLS002A_fat	fat
+BLS003A	BLS003A_fat	fat
+BLS010A	BLS010A_fat	fat
+BLS001A_2	BLS001A_skim	skim
+BLS002A_2	BLS002A_2_skim	skim
+BLS003A_2	BLS003A_2_skim	skim
+BLS010A_2	BLS010A_2_skim	skim
+BLS001A_3	BLS001A_whole	whole
+BLS002A_3	BLS002A_3_whole	whole
+BLS003A_3	BLS003A_3_whole	whole
+BLS010A_3	BLS010A_3_whole	whole
