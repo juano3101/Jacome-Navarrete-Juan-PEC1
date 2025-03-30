@@ -12,6 +12,10 @@ library(S4Vectors)
 library(dplyr)
 library(ggplot2)
 library(patchwork)
+library(scales)
+library(ggrepel)
+library(pheatmap)
+library(RColorBrewer)
 
 # RESUMEN DEL ESTUDIO
 t(do_query('study','study_id','ST000957','summary'))
@@ -114,8 +118,7 @@ mean_ab_frac <- ggplot(resumen_se_imputed, aes(x = Milk_fraction, y = media, fil
   labs(title = "Abundancia absoluta promedio por fracción de leche",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "none") #+
+  theme(legend.position = "none") #+
 #  theme_minimal() +
 #  theme(
 #    axis.text.x = element_text(angle = 45, hjust = 1),
@@ -145,7 +148,7 @@ mean_rel_frac <- ggplot(resumen_se_imputed, aes(x = Milk_fraction, y = porcentaj
 abundancia_frac <- (mean_ab_frac)/(mean_rel_frac) + plot_layout(guides = "collect") +
   plot_annotation(tag_levels = 'A') # para poner etiquetas en los gráficos
 
-
+print(abundancia_frac)
 
 
 ### ABUNDANCIA ABSOLUTA PROMEDIO POR SUJETO
@@ -182,8 +185,7 @@ mean_ab_sujeto <- ggplot(matriz_promedio_sujeto, aes(x = Milk_fraction, y = medi
   labs(title = "Abundancia absoluta promedio por fracción y sujeto",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "none")
+  theme(legend.position = "none")
 
 # Graficar barras apiladas con facetas por sujeto
 mean_rel_sujeto <- ggplot(matriz_promedio_sujeto, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
@@ -204,7 +206,7 @@ mean_rel_sujeto <- ggplot(matriz_promedio_sujeto, aes(x = Milk_fraction, y = por
 abundancia_sujeto <- (mean_ab_sujeto)/(mean_rel_sujeto) + plot_layout(guides = "collect") +
   plot_annotation(tag_levels = 'A') # para poner etiquetas en los gráficos
 
-
+print(abundancia_sujeto)
 
 ### ABUNDANCIA ABSOLUTA PROMEDIO POR CLASE
 
@@ -241,195 +243,163 @@ resumen_mainclass  <- calcular_abundancias_promedio(se_mainclass)
 resumen_subclass   <- calcular_abundancias_promedio(se_subclass)
 
 
-ggplot(res_superclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
+
+# Graficar barras apiladas
+
+# gráficos para SUPER CLASE
+# Abundancia absoluta
+ab_super <- ggplot(resumen_superclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia absoluta promedio por fracción de leche",
+  labs(title = "Abundancia absoluta promedio por fracción de leche (Super class metabolito)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(legend.position = "none")
 
-
-# 3. Graficar
-ggplot(res_superclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+# Abundancia relativa
+ab_rel_super <- ggplot(resumen_superclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia relativa promedio por fracción de leche",
+  labs(title = "Abundancia relativa promedio por fracción de leche (Super class metabolito)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggplot(res_mainclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
+# combinar
+abundancia_superclass <- (ab_super)/(ab_rel_super) + plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A') # para poner etiquetas en los gráficos
+
+print(abundancia_superclass)
+
+
+# gráficos para MAIN CLASE
+# Abundancia absoluta
+ab_main <- ggplot(resumen_mainclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia absoluta promedio por fracción de leche",
+  labs(title = "Abundancia absoluta promedio por fracción de leche (Main class metabolito)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(legend.position = "none")
 
-# 3. Graficar
-ggplot(res_mainclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+# Abundancia relativa
+ab_rel_main <- ggplot(resumen_mainclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia relativa promedio por fracción de leche",
+  labs(title = "Abundancia relativa promedio por fracción de leche (Main class metabolito)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+# Combinar
+abundancia_mainclass <- (ab_main / ab_rel_main) + plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A')
 
-ggplot(res_subclass , aes(x = Milk_fraction, y = media, fill = metabolito)) +
+print(abundancia_mainclass)
+
+
+# gráficos para subclase
+# Abundancia absoluta
+ab_sub <- ggplot(resumen_subclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia absoluta promedio por fracción de leche",
+  labs(title = "Abundancia absoluta promedio por fracción de leche (Sub class metabolito)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(legend.position = "none")
 
-ggplot(res_subclass , aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+# Abundancia relativa
+ab_rel_sub <- ggplot(resumen_subclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia relativa promedio por fracción de leche",
+  labs(title = "Abundancia relativa promedio por fracción de leche (Sub class metabolito)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+# Combinar
+abundancia_subclass <- (ab_sub / ab_rel_sub) + plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A')
+
+print(abundancia_subclass)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Ejecutar para cada nivel
+#################################################################################
+# Ejecutar para cada nivel DE LA FUNCION calcular_abundancia_por_sujeto
 matriz_promedio_sujeto_superclass <- calcular_abundancia_por_sujeto(se_superclass)
 matriz_promedio_sujeto_mainclass  <- calcular_abundancia_por_sujeto(se_mainclass)
 matriz_promedio_sujeto_subclass   <- calcular_abundancia_por_sujeto(se_subclass)
 
-
-
-
-
-# 2. Graficar barras apiladas con facet por sujeto
-ggplot(matriz_promedio_sujeto_superclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
+# graficos para SUPER CLASE
+ab_super_suj <- ggplot(matriz_promedio_sujeto_superclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia absoluta promedio por fracción y sujeto",
+  labs(title = "Abundancia absoluta promedio por fracción y sujeto (Super class)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(legend.position = "none")
 
-# Calcular porcentaje relativo por fracción dentro de cada sujeto
-matriz_relativa_sujeto_superclass <- matriz_promedio_sujeto_superclass %>%
-  group_by(sujeto, Milk_fraction) %>%
-  mutate(porcentaje = media / sum(media) * 100) %>%
-  ungroup()
-
-# Graficar barras apiladas con facetas por sujeto
-ggplot(matriz_relativa_sujeto_superclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+rel_super_suj <- ggplot(matriz_promedio_sujeto_superclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia relativa promedio por fracción y sujeto",
+  labs(title = "Abundancia relativa promedio por fracción y sujeto (Super class)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+abundancia_superclass_sujeto <- ab_super_suj / rel_super_suj + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 1. Calcular la media por sujeto, fracción y metabolito
-matriz_promedio_sujeto_mainclass <- matriz_df_mainclass %>%
-  group_by(sujeto, Milk_fraction, metabolito) %>%
-  summarise(media = mean(intensidad), .groups = "drop")
-
-# 2. Graficar barras apiladas con facet por sujeto
-ggplot(matriz_promedio_sujeto_mainclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
+# graficos para MAIN CLASE
+ab_main_suj <- ggplot(matriz_promedio_sujeto_mainclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia absoluta promedio por fracción y sujeto",
+  labs(title = "Abundancia absoluta promedio por fracción y sujeto (Main class)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(legend.position = "none")
 
-
-# Calcular porcentaje relativo por fracción dentro de cada sujeto
-matriz_relativa_sujeto_mainclass <- matriz_promedio_sujeto_mainclass %>%
-  group_by(sujeto, Milk_fraction) %>%
-  mutate(porcentaje = media / sum(media) * 100) %>%
-  ungroup()
-
-# Graficar barras apiladas con facetas por sujeto
-ggplot(matriz_relativa_sujeto_mainclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+rel_main_suj <- ggplot(matriz_promedio_sujeto_mainclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia relativa promedio por fracción y sujeto",
+  labs(title = "Abundancia relativa promedio por fracción y sujeto (Main class)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+abundancia_mainclass_sujeto <- ab_main_suj / rel_main_suj + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A')
 
 
-
-
-
-
-
-# 1. Calcular la media por sujeto, fracción y metabolito
-matriz_promedio_sujeto_subclass  <- matriz_df_subclass  %>%
-  group_by(sujeto, Milk_fraction, metabolito) %>%
-  summarise(media = mean(intensidad), .groups = "drop")
-
-# 2. Graficar barras apiladas con facet por sujeto
-ggplot(matriz_promedio_sujeto_subclass , aes(x = Milk_fraction, y = media, fill = metabolito)) +
+# graficos para SUB CLASE
+ab_sub_suj <- ggplot(matriz_promedio_sujeto_subclass, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia absoluta promedio por fracción y sujeto",
+  labs(title = "Abundancia absoluta promedio por fracción y sujeto (Sub class)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(legend.position = "none")
 
-
-library(dplyr)
-library(ggplot2)
-
-# Calcular porcentaje relativo por fracción dentro de cada sujeto
-matriz_relativa_sujeto_subclass  <- matriz_promedio_sujeto_subclass  %>%
-  group_by(sujeto, Milk_fraction) %>%
-  mutate(porcentaje = media / sum(media) * 100) %>%
-  ungroup()
-
-# Graficar barras apiladas con facetas por sujeto
-ggplot(matriz_relativa_sujeto_subclass , aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+rel_sub_suj <- ggplot(matriz_promedio_sujeto_subclass, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia relativa promedio por fracción y sujeto",
+  labs(title = "Abundancia relativa promedio por fracción y sujeto (Sub class)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+abundancia_subclass_sujeto <- ab_sub_suj / rel_sub_suj + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A')
+
+
+abundancia_superclass_sujeto 
+abundancia_mainclass_sujeto
+abundancia_subclass_sujeto
 
 
 
+# FUNCION PARA SELECCIONAR LOS TOP N METABOLITOS Y AGRUPAR EL RESTO COMO "OTROS"
 
-seleccionar_top_y_otros <- function(se, top_n = 20) {
-  matriz <- assay(se)
+seleccionar_top_y_otros <- function(se_imputed, top_n = 20) {
+  matriz <- assay(se_imputed)
   
   # Sumar la abundancia total por fila (metabolito o clase)
   suma_total <- rowSums(matriz)
@@ -459,129 +429,111 @@ seleccionar_top_y_otros <- function(se, top_n = 20) {
   )
 }
 
+# aplicar la función
+se_top <- seleccionar_top_y_otros(se, top_n = 50)
 
 
-
-se_top <- seleccionar_top_y_otros(se, top_n = 20)
-
-
-# Convertir la matriz a data frame y pasar a formato largo
-matriz_df_top <- as.data.frame(assay(se_top)) %>%
-  rownames_to_column(var = "metabolito") %>%
-  pivot_longer(-metabolito, names_to = "Muestra", values_to = "intensidad")
-
-# Añadir la fracción de leche desde colData
-matriz_df_top <- matriz_df_top %>%
-  left_join(as.data.frame(colData(se_top)) %>%
-              rownames_to_column("Muestra"),
-            by = "Muestra")
-
-
-# Abundancia absoluta promedio por fracción
-matriz_promedio_top <- matriz_df_top %>%
-  group_by(Milk_fraction, metabolito) %>%
-  summarise(media = mean(intensidad), .groups = "drop")
-
-
-# calcular el porcentaje relativo por fracción
-matriz_relativa_frac_top <- matriz_promedio_top %>%
-  group_by(Milk_fraction) %>%
-  mutate(porcentaje = media / sum(media) * 100) %>%
-  ungroup()
-
-
-# 1. Calcular la media por sujeto, fracción y metabolito
-matriz_promedio_sujeto_top <- matriz_df_top %>%
-  group_by(sujeto, Milk_fraction, metabolito) %>%
-  summarise(media = mean(intensidad), .groups = "drop")
-
-
-
-
-library(dplyr)
-library(ggplot2)
-
-# Calcular porcentaje relativo por fracción dentro de cada sujeto
-matriz_relativa_sujeto_top <- matriz_promedio_sujeto_top %>%
-  group_by(sujeto, Milk_fraction) %>%
-  mutate(porcentaje = media / sum(media) * 100) %>%
-  ungroup()
+matriz_promedio_sujeto_top <- calcular_abundancia_por_sujeto(se_top)
 
 # Reordenar los niveles del factor 'metabolito'
-orden_metabolitos <- matriz_df_top %>%
+orden_metabolitos <- matriz_promedio_sujeto_top %>%
   distinct(metabolito) %>%
   pull(metabolito) %>%
   setdiff("Others") %>%
   c("Others",. )  # Poner "Others" al final
 
 # Aplicar en todos los dataframes usados en gráficos
-matriz_df_top$metabolito <- factor(matriz_df_top$metabolito, levels = orden_metabolitos)
-matriz_promedio_top$metabolito <- factor(matriz_promedio_top$metabolito, levels = orden_metabolitos)
-matriz_relativa_frac_top$metabolito <- factor(matriz_relativa_frac_top$metabolito, levels = orden_metabolitos)
 matriz_promedio_sujeto_top$metabolito <- factor(matriz_promedio_sujeto_top$metabolito, levels = orden_metabolitos)
-matriz_relativa_sujeto_top$metabolito <- factor(matriz_relativa_sujeto_top$metabolito, levels = orden_metabolitos)
 
-library(scales)
-
+# Paleta de colores
 n_metab <- length(orden_metabolitos) - 1  # sin contar "Others"
 colores <- c("black", hue_pal()(n_metab))  # "Others" negro
 names(colores) <- orden_metabolitos
 
-ggplot(matriz_promedio_top, aes(x = Milk_fraction, y = media, fill = metabolito)) +
+
+# Abundancia absoluta (top metabolitos)
+ab_frac_top <- ggplot(matriz_promedio_sujeto_top, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia absoluta promedio por fracción de leche",
+  labs(title = "Abundancia absoluta promedio por fracción de leche (Top metabolitos)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + scale_fill_manual(values = colores)
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none") +
+  scale_fill_manual(values = colores)
 
-
-# 3. Graficar
-ggplot(matriz_relativa_frac_top, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+# Abundancia relativa (top metabolitos)
+rel_frac_top <- ggplot(matriz_promedio_sujeto_top, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
-  labs(title = "Abundancia relativa promedio por fracción de leche",
+  labs(title = "Abundancia relativa promedio por fracción de leche (Top metabolitos)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + scale_fill_manual(values = colores)
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.text = element_text(size = 10),
+        legend.key.size = unit(1, "lines"),
+        legend.position = "right") +
+  guides(fill = guide_legend(ncol = 2)) +
+  scale_fill_manual(values = colores)
 
-# 2. Graficar barras apiladas con facet por sujeto
-ggplot(matriz_promedio_sujeto_top, aes(x = Milk_fraction, y = media, fill = metabolito)) +
+# Combinación
+abundancia_frac_top <- ab_frac_top / rel_frac_top +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A')
+
+abundancia_frac_top
+
+
+
+
+# Abundancia absoluta por sujeto y fracción (top metabolitos)
+ab_suj_top <- ggplot(matriz_promedio_sujeto_top, aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia absoluta promedio por fracción y sujeto",
+  labs(title = "Abundancia absoluta por fracción y sujeto (Top metabolitos)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + scale_fill_manual(values = colores)
+  theme(legend.position = "none") +
+  scale_fill_manual(values = colores)
 
-# Graficar barras apiladas con facetas por sujeto
-ggplot(matriz_relativa_sujeto_top, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
+# Abundancia relativa por sujeto y fracción (top metabolitos)
+rel_suj_top <- ggplot(matriz_promedio_sujeto_top, aes(x = Milk_fraction, y = porcentaje, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia relativa promedio por fracción y sujeto",
+  labs(title = "Abundancia relativa por fracción y sujeto (Top metabolitos)",
        x = "Fracción de leche", y = "Porcentaje (%)") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + scale_fill_manual(values = colores)
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.text = element_text(size = 10),
+        legend.key.size = unit(1, "lines"),
+        legend.position = "right") +
+  guides(fill = guide_legend(ncol = 2)) +
+  scale_fill_manual(values = colores)
+
+# Combinación
+abundancia_sujeto_top <- ab_suj_top / rel_suj_top +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A')
+
+abundancia_sujeto_top
 
 
 
 
 
+### NORMALIZAR DATOS
+
+colores_fraccion <- c(
+  "fat"   = "#1f77b4",  # azul
+  "skim"  = "#e377c2",  # rosa
+  "whole" = "#ff7f0e"   # naranja
+)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+colores_sujeto <- c(
+  "BLS001A" = "#d62728",  # rojo
+  "BLS002A" = "#2ca02c",  # verde
+  "BLS003A" = "#9467bd",  # púrpura
+  "BLS010A" = "#17becf"   # celeste
+)
 
 
 
@@ -606,25 +558,74 @@ rowData(se_normalized)
 table(colData(se_normalized)$Milk_fraction)
 
 
-PomaBoxplots(se_imputed, x = "samples") # data before normalization
-PomaBoxplots(se_normalized, x = "samples") # data after normalization
-
-
-PomaDensity(se_imputed, x = "features") + # data after normalization  +
+# grafico de densidad de datos
+# Densidad antes de la normalización
+den_no_normalizado <- PomaDensity(se_imputed, x = "features") +
+  labs(title = "Densidad de intensidades antes de la normalización") +
   theme(legend.position = "none")
 
-PomaDensity(se_normalized, x = "features") + # data after normalization  +
+# Densidad después de la normalización
+den_normalizado <- PomaDensity(se_normalized, x = "features") +
+  labs(title = "Densidad de intensidades después de la normalización") +
   theme(legend.position = "none")
+
+# Unir gráficos con títulos
+den_no_normalizado / den_normalizado +
+  plot_annotation(tag_levels = 'A') # para poner etiquetas en los gráficos
+
+
+# Convertir a formato largo
+df_long <- as.data.frame(assay(se_normalized)) %>%
+  tibble::rownames_to_column("metabolito") %>%
+  pivot_longer(-metabolito, names_to = "muestra", values_to = "valor") %>%
+  left_join(as.data.frame(colData(se_normalized)) %>%
+              tibble::rownames_to_column("muestra"),
+            by = "muestra")
+
+# Gráfico de intensidad por fracción
+intensidad_normalizada <- ggplot(df_long, aes(x = Milk_fraction, y = valor, fill = Milk_fraction)) +
+  geom_boxplot(outlier.size = 0.5)  +
+  labs(
+    title = "Distribución normalizada de intensidades por fracción",
+    x = "Fracción de leche",
+    y = "Intensidad normalizada"
+  ) +
+  theme_minimal() + theme(legend.position = "none") + scale_fill_manual(values = colores_fraccion)
+
+
+intensidad_normalizada
+
+# Gráfico de intensidad por sujeto y fracción
+intensidad_normalizada_sujeto <- ggplot(df_long, aes(x = Milk_fraction, y = valor, fill = Milk_fraction)) +
+  geom_boxplot(outlier.size = 0.5) +
+  facet_wrap(~ sujeto, scales = "free_y") +
+  labs(
+    title = "Distribución normalizada de intensidades por fracción y muestra",
+    x = "Fracción de leche",
+    y = "Intensidad normalizada"
+  ) +
+  theme_minimal() + theme(legend.position = "none") + scale_fill_manual(values = colores_fraccion)
+
+
+intensidad_normalizada_sujeto
+
 
 
 # no hay outliers
 se_normalized
-PomaOutliers(se_normalized)$data
+PomaOutliers(se_imputed)$data
 
-library(dplyr)
-library(tibble)
-library(ggplot2)
+# Gráfico de outliers
+outliers_plot_no_normalizados <- PomaOutliers(se_imputed)$polygon_plot + scale_fill_manual(values = colores_fraccion) +
+  theme_minimal() + theme(legend.position = "none")
 
+outliers_plot_normalizados <- PomaOutliers(se_normalized)$polygon_plot + scale_fill_manual(values = colores_fraccion) +
+  theme_minimal()
+
+outliers_plot_no_normalizados + outliers_plot_normalizados + plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A') 
+
+  
 
 # Extraer info y preparar
 matriz <- assay(se_normalized)
@@ -637,238 +638,133 @@ metabolitos_por_muestra <- apply(matriz, 2, function(x) sum(x > 0))
 
 # Agregar al metadata
 metadata$metabolitos_detectados <- metabolitos_por_muestra
-
 colData(se_normalized)[["metabolitos_detectados"]] <- metabolitos_por_muestra
 
 # Agrupar por sujeto y fracción, y graficar
-ggplot(metadata, aes(x = Milk_fraction, y = metabolitos_detectados, group = sujeto, color = sujeto)) +
-  geom_line(size = 1.1) +
-  geom_point(size = 2) +
-  labs(title = "Metabolitos detectados por fracción de leche y sujeto",
-       x = "Fracción de leche", y = "Número de metabolitos detectados") +
-  theme_minimal()
+num_metabolitos_sujeto <- ggplot(metadata, aes(x = Milk_fraction, y = metabolitos_detectados, group = sujeto, color = sujeto)) +
+    geom_line(size = 1.1) +
+    geom_point(size = 2) +
+    labs(title = "Metabolitos detectados por fracción de leche y sujeto",
+         x = "Fracción de leche", y = "Número de metabolitos detectados") +
+    theme_minimal() + scale_color_manual(values = colores_sujeto)
 
+intensidad_normalizada_sujeto + num_metabolitos_sujeto
 
-
-
-library(dplyr)
-library(ggplot2)
 
 
 # Calcular media, SD y SEM por fracción
 resumen_fraccion <- metadata %>%
   group_by(Milk_fraction) %>%
   summarise(
-    media = mean(metabolitos_detectados),
-    sd = sd(metabolitos_detectados),
+    media = mean(metabolitos_detectados), #calcular la media
+    sd = sd(metabolitos_detectados), #calcular la desviación estándar
     n = n(),
-    sem = sd / sqrt(n)
+    sem = sd / sqrt(n) #calcular el error estándar de la media
   )
 
-# Calcular media, SD y SEM por fracción
+# Calcular media, SD y SEM por sujeto
 resumen_sujeto <- metadata %>%
   group_by(sujeto) %>%
   summarise(
-    media = mean(metabolitos_detectados),
-    sd = sd(metabolitos_detectados),
+    media = mean(metabolitos_detectados), #calcular la media
+    sd = sd(metabolitos_detectados), #calcular la desviación estándar
     n = n(),
-    sem = sd / sqrt(n)
-  )
-
-resumen_combinado <- metadata %>%
-  group_by(sujeto, Milk_fraction) %>%
-  summarise(
-    media = mean(metabolitos_detectados),
-    n = n(),
-    .groups = "drop"
+    sem = sd / sqrt(n) #calcular el error estándar de la media
   )
 
 
 
 
+#Extraer matriz de intensidades ya normalizada
+matriz <- assay(se_normalized)
 
+#Calcular varianzas y seleccionar los top más variables
+varianzas <- apply(matriz, 1, var, na.rm = TRUE) # Calcular varianza por fila
+varianzas_filtradas <- varianzas[varianzas > 0] # Filtrar las que no son 0
+top_n <- min(30, length(varianzas_filtradas)) # Seleccionar los 30 más variables
+top_metabolitos <- names(sort(varianzas_filtradas, decreasing = TRUE))[1:top_n] # Nombres de los top 30
+matriz_top_var <- matriz[top_metabolitos, ] # Filtrar la matriz para quedarme con los top 30
 
+# Anotaciones (Milk_fraction y sujeto)
+anotaciones <- as.data.frame(colData(se_normalized)) %>% # Extraer metadata
+  select(Milk_fraction, sujeto) # Seleccionar las columnas de interés
+rownames(anotaciones) <- colnames(se_normalized) # Asignar nombres de filas
 
-library(dplyr)
-library(tibble)
-library(ggplot2)
-# Calcular suma de intensidades por muestra
-suma_por_muestra <- colSums(assay(se_normalized))
-
-metadata$intensidad_por_muestra <- suma_por_muestra
-colData(se_normalized)[["intensidad_por_muestra"]] <- suma_por_muestra
-
-# Gráfico: barras por sujeto dentro de cada fracción
-ggplot(metadata, aes(x = sujeto, y = intensidad_por_muestra, fill = Milk_fraction)) +
-  geom_bar(stat = "identity", position = position_dodge()) +
-  labs(title = "Intensidad total por sujeto y fracción de leche",
-       x = "Sujeto", y = "Intensidad total") +
-  theme_minimal()
-
-
-
-
-library(tibble)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-
-# Convertir la matriz a data frame y pasar a formato largo
-matriz_df_normalized <- as.data.frame(assay(se_normalized)) %>%
-  rownames_to_column(var = "metabolito") %>%
-  pivot_longer(-metabolito, names_to = "Muestra", values_to = "intensidad")
-
-# Añadir la fracción de leche desde colData
-matriz_df_normalized <- matriz_df_normalized %>%
-  left_join(as.data.frame(colData(se_normalized)) %>%
-              rownames_to_column("Muestra"),
-            by = "Muestra")
-
-ggplot(matriz_df, aes(x = Milk_fraction, y = intensidad, fill = sujeto)) +
-  geom_boxplot(outlier.shape = NA, position = position_dodge(width = 0.75)) +
-  facet_wrap(~ sujeto) +
-  labs(
-    title = "Distribución de intensidades normalizadas por fracción y sujeto",
-    y = "Intensidad (log pareto normalizada)",
-    x = "Fracción de leche"
-  ) +
-  theme_minimal()   +
-  theme(legend.position = "none")
-
-
-
-
-
-
-
-
-
-
-
-library(pheatmap)
-library(RColorBrewer)
-
-# 1. Extraer matriz de intensidades
-matriz <- assay(se)
-
-# 2. Calcular varianzas y seleccionar los top 30 más variables (con varianza > 0)
-varianzas <- apply(matriz, 1, var, na.rm = TRUE)
-varianzas_filtradas <- varianzas[varianzas > 0]
-top_n <- min(30, length(varianzas_filtradas))
-top_metabolitos <- names(sort(varianzas_filtradas, decreasing = TRUE))[1:top_n]
-matriz_top_var <- matriz[top_metabolitos, ]
-
-# 3. Escalar por fila (z-score)
-matriz_escalada <- t(scale(t(matriz_top_var)))
-
-# 4. Anotaciones: sujeto y fracción
-anotaciones <- as.data.frame(colData(se_top)) %>%
-  select(Milk_fraction, sujeto)
-rownames(anotaciones) <- colnames(se_top)
-
-# 5. Colores automáticos para anotaciones
-# Generar paletas de colores distintas para cada variable categórica
-colors_fractions <- setNames(brewer.pal(length(unique(anotaciones$Milk_fraction)), "Pastel1"),
-                             unique(anotaciones$Milk_fraction))
-
-colors_sujetos <- setNames(brewer.pal(n = length(unique(anotaciones$sujeto)), name = "Set2"),
-                           unique(anotaciones$sujeto))
-
-ann_colors <- list(
-  Milk_fraction = colors_fractions,
-  sujeto = colors_sujetos
+# colores para para la fraccion y los sujetos, que se definieron antes
+colores_para_heatmap <- list(
+  Milk_fraction = colores_fraccion,
+  sujeto = colores_sujeto
 )
 
-# 6. Heatmap final
-pheatmap(matriz_escalada,
-         annotation_col = anotaciones,
-         annotation_colors = ann_colors,
-         show_rownames = TRUE,
-         show_colnames = FALSE,
-         cluster_rows = TRUE,
-         cluster_cols = TRUE,
-         color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
-         main = "Heatmap de los 30 metabolitos más variables",
-         fontsize_row = 7)
+# Heatmap final
+heatmap <- pheatmap(matriz_top_var,
+           annotation_col = anotaciones,
+           annotation_colors = colores_para_heatmap,
+           show_rownames = TRUE,
+           show_colnames = FALSE,
+           cluster_rows = TRUE,
+           cluster_cols = TRUE,
+           color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
+           main = "Heatmap de los 30 metabolitos más variables",
+           fontsize_row = 7)
+
+heatmap
 
 
 
-
-
-library(ggplot2)
-library(ggrepel)
-
-# 1. Obtener matriz de intensidades (muestras en filas)
-matriz <- t(assay(se))
-
-# 2. Realizar PCA
+# realizar pca
 pca <- prcomp(matriz, scale. = TRUE)
 
-# 3. Extraer coordenadas del PCA
-pca_df <- as.data.frame(pca$x) %>%
-  rownames_to_column("Muestra") %>%
-  left_join(as.data.frame(colData(se_top)) %>%
-              tibble::rownames_to_column("Muestra"),
-            by = "Muestra")
+# Extraer coordenadas del PCA
+pca_df <- as.data.frame(pca$x) %>% # Convertir a dataframe
+  rownames_to_column("Muestra") %>% # Añadir nombres de filas
+  left_join(as.data.frame(colData(se_top)) %>% # Añadir metadata
+              tibble::rownames_to_column("Muestra"), 
+            by = "Muestra") # Unir por la columna Muestra
 
-# 4. Graficar PCA
-ggplot(pca_df, aes(x = PC1, y = PC2, color = sujeto, shape = Milk_fraction, label = Muestra)) +
+# Graficar PCA de las muestras
+biplot_pca_muestras  <-  ggplot(pca_df, aes(x = PC1, y = PC2, color = sujeto, shape = Milk_fraction, label = Muestra)) +
   geom_point(size = 4) +
-  geom_text_repel(size = 3.5, max.overlaps = 100) +
+  geom_text_repel(size = 3.5, max.overlaps = 100) + # Evitar superposiciones
   labs(title = "PCA de muestras basado en intensidades",
-       subtitle = "Colores: sujeto | Forma: fracción | Etiqueta: ID muestra",
-       x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"),
+       x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"), # Etiquetas de los ejes
        y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "% var)")) +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(legend.position = "right") + scale_fill_manual(values = colores_sujeto)
 
 
 
-
-
-
-
-
-
-
-
-# 1. Obtener matriz: metabolitos en filas
-matriz <- assay(se)
-
-# 2. PCA con escalado
-pca_metab <- prcomp(matriz, scale. = TRUE)
-
-# 3. Coordenadas de metabolitos (puntos)
-metab_coords <- as.data.frame(pca_metab$x) %>%
+# Coordenadas de metabolitos (puntos)
+metab_coords <- as.data.frame(pca$x) %>%
   rownames_to_column("metabolito")
 
-# 4. Coordenadas de muestras (vectores)
-muestra_coords <- as.data.frame(pca_metab$rotation) %>%
+# Coordenadas de muestras (vectores)
+muestra_coords <- as.data.frame(pca$rotation) %>%
   rownames_to_column("Muestra") %>%
   left_join(as.data.frame(colData(se_top)) %>%
               rownames_to_column("Muestra"),
             by = "Muestra")
 
-# 5. Gráfico PCA biplot
-ggplot() +
-  # Puntos: metabolitos
-  geom_point(data = metab_coords, aes(x = PC1, y = PC2), color = "black", alpha = 0.7, size = 2) +
-  geom_text_repel(data = metab_coords, aes(x = PC1, y = PC2, label = metabolito), size = 3, max.overlaps = 50) +
-  
-  # Flechas: muestras
-  geom_segment(data = muestra_coords,
-               aes(x = 0, y = 0, xend = PC1 * 5, yend = PC2 * 5, color = sujeto),
-               arrow = arrow(length = unit(0.2, "cm")), alpha = 0.8) +
-  geom_label_repel(data = muestra_coords,
-                   aes(x = PC1 * 5, y = PC2 * 5, label = Muestra, fill = Milk_fraction),
-                   size = 3.2, color = "white", show.legend = TRUE) +
-  
-  scale_color_brewer(palette = "Set2") +
-  scale_fill_brewer(palette = "Pastel1") +
-  labs(title = "PCA biplot: Metabolitos vs. Muestras",
-       subtitle = "Metabolitos como puntos (negro), muestras como flechas (color: sujeto, relleno: fracción)",
-       x = paste0("PC1 (", round(summary(pca_metab)$importance[2, 1] * 100, 1), "%)"),
-       y = paste0("PC2 (", round(summary(pca_metab)$importance[2, 2] * 100, 1), "%)"),
-       color = "Sujeto", fill = "Fracción de leche") +
-  theme_minimal()
+# Gráfico PCA biplot
+biplot_pca_metabolitos <- ggplot() +
+    # Puntos: metabolitos
+    geom_point(data = metab_coords, aes(x = PC1, y = PC2), color = "black", alpha = 0.7, size = 2) +
+    geom_text_repel(data = metab_coords, aes(x = PC1, y = PC2, label = metabolito), size = 3, max.overlaps = 50) +
+    # Flechas: muestras
+    geom_segment(data = muestra_coords,
+                 aes(x = 0, y = 0, xend = PC1 * 5, yend = PC2 * 5, color = sujeto),
+                 arrow = arrow(length = unit(0.2, "cm")), alpha = 0.8) +
+    geom_label_repel(data = muestra_coords,
+                     aes(x = PC1 * 5, y = PC2 * 5, label = Muestra, fill = Milk_fraction),
+                     size = 3.2, color = "white", show.legend = TRUE) +
+    
+    scale_color_brewer(palette = "Set2") +
+    scale_fill_brewer(palette = "Pastel1") +
+    labs(title = "PCA biplot: Metabolitos vs. Muestras",
+         subtitle = "Metabolitos como puntos (negro), muestras como flechas (color: sujeto, relleno: fracción)",
+         x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "%)"),
+         y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "%)"),
+         color = "Sujeto", fill = "Fracción de leche") +
+    theme_minimal() + scale_fill_manual(values = colores_fraccion)
 
+biplot_pca_muestras + biplot_pca_metabolitos
