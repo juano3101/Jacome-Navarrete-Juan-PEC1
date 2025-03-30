@@ -1,0 +1,73 @@
+---
+title: "Jácome-Navarrete-Juan-PEC1"
+author: "Juan C. Jácome Navarrete"
+date: "today"
+format: pdf
+editor: visual
+toc: true
+number-sections: true
+---
+
+
+# Tabla de contenidos
+
+::: {.contents}
+:::
+
+# Resumen
+
+<!-- Breve resumen del análisis, el dataset, las herramientas utilizadas y los resultados más relevantes (aprox. 150 palabras). -->
+
+# Objetivos
+
+<!-- Objetivos generales y específicos del análisis. -->
+
+# Métodos
+
+## Dataset
+
+<!-- Fuente y descripción del dataset seleccionado. -->
+
+## Estructura de los datos
+
+<!-- Número de muestras, variables, tipo de datos (metabolitos, intensidades, etc.). -->
+
+## Herramientas utilizadas
+
+<!-- R, Bioconductor, SummarizedExperiment, paquetes relevantes, entorno de trabajo. -->
+
+## Procedimiento de análisis
+
+<!-- Cómo se procesaron los datos: carga, limpieza, transformación, etc. -->
+
+## Exploración estadística
+
+<!-- Técnicas empleadas: PCA, clustering, boxplots, correlaciones, etc. -->
+
+# Resultados
+
+## Estadísticas descriptivas
+
+<!-- Resumen de la distribución de datos, valores faltantes, outliers, etc. -->
+
+## Visualización
+
+<!-- Figuras con pies explicativos: PCA, gráficos de calor, boxplots, etc. -->
+
+## Interpretación biológica
+
+<!-- Qué se puede deducir biológicamente del análisis. -->
+
+# Discusión
+
+<!-- Reflexión crítica: limitaciones del estudio, posibles fuentes de error, sugerencias para trabajos futuros. -->
+
+# Conclusiones
+
+<!-- Resumen claro y conciso de los hallazgos clave. -->
+
+# Referencias
+
+<!-- Bibliografía (si aplica) y enlace al repositorio de GitHub -->
+
+- GitHub: [https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1](https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1)
