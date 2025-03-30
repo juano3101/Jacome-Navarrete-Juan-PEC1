@@ -16,6 +16,7 @@ library(scales)
 library(ggrepel)
 library(pheatmap)
 library(RColorBrewer)
+library(knitr)
 
 # RESUMEN DEL ESTUDIO
 t(do_query('study','study_id','ST000957','summary'))
@@ -56,6 +57,8 @@ se <- se[!sin_nombre_estandarizado, ]
 colData(se)$Milk_fraction <- as.factor(colData(se)$Milk_fraction)
 colData(se)$sujeto <- as.factor(colData(se)$sujeto)
 
+
+save(se, file = "SummarizedExperiment_dataset.Rda")
 
 # SE REALIZA UNA IMPUTACIÓN CON EL METODO KNN, SIN REMOVER MUESTRAS
 se_imputed <- PomaImpute(se, method = "knn", zeros_as_na = TRUE, remove_na = FALSE)
@@ -713,58 +716,28 @@ heatmap
 
 
 # realizar pca
-pca <- prcomp(matriz, scale. = TRUE)
+
+matriz_pca <- t(assay(se_normalized)) # Transponer la matriz para calcular pca para muestras
+pca <- prcomp(matriz_pca, scale. = TRUE)
 
 # Extraer coordenadas del PCA
 pca_df <- as.data.frame(pca$x) %>% # Convertir a dataframe
   rownames_to_column("Muestra") %>% # Añadir nombres de filas
-  left_join(as.data.frame(colData(se_top)) %>% # Añadir metadata
+  left_join(as.data.frame(colData(se_normalized)) %>% # Añadir metadata
               tibble::rownames_to_column("Muestra"), 
             by = "Muestra") # Unir por la columna Muestra
+
 
 # Graficar PCA de las muestras
 biplot_pca_muestras  <-  ggplot(pca_df, aes(x = PC1, y = PC2, color = sujeto, shape = Milk_fraction, label = Muestra)) +
   geom_point(size = 4) +
-  geom_text_repel(size = 3.5, max.overlaps = 100) + # Evitar superposiciones
+  geom_text_repel(size = 3.5, max.overlaps = 100) +
   labs(title = "PCA de muestras basado en intensidades",
-       x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"), # Etiquetas de los ejes
+       x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"),
        y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "% var)")) +
   theme_minimal() +
-  theme(legend.position = "right") + scale_fill_manual(values = colores_sujeto)
+  theme(legend.position = "right") + scale_color_manual(values = colores_sujeto)
+
+biplot_pca_muestras
 
 
-
-# Coordenadas de metabolitos (puntos)
-metab_coords <- as.data.frame(pca$x) %>%
-  rownames_to_column("metabolito")
-
-# Coordenadas de muestras (vectores)
-muestra_coords <- as.data.frame(pca$rotation) %>%
-  rownames_to_column("Muestra") %>%
-  left_join(as.data.frame(colData(se_top)) %>%
-              rownames_to_column("Muestra"),
-            by = "Muestra")
-
-# Gráfico PCA biplot
-biplot_pca_metabolitos <- ggplot() +
-    # Puntos: metabolitos
-    geom_point(data = metab_coords, aes(x = PC1, y = PC2), color = "black", alpha = 0.7, size = 2) +
-    geom_text_repel(data = metab_coords, aes(x = PC1, y = PC2, label = metabolito), size = 3, max.overlaps = 50) +
-    # Flechas: muestras
-    geom_segment(data = muestra_coords,
-                 aes(x = 0, y = 0, xend = PC1 * 5, yend = PC2 * 5, color = sujeto),
-                 arrow = arrow(length = unit(0.2, "cm")), alpha = 0.8) +
-    geom_label_repel(data = muestra_coords,
-                     aes(x = PC1 * 5, y = PC2 * 5, label = Muestra, fill = Milk_fraction),
-                     size = 3.2, color = "white", show.legend = TRUE) +
-    
-    scale_color_brewer(palette = "Set2") +
-    scale_fill_brewer(palette = "Pastel1") +
-    labs(title = "PCA biplot: Metabolitos vs. Muestras",
-         subtitle = "Metabolitos como puntos (negro), muestras como flechas (color: sujeto, relleno: fracción)",
-         x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "%)"),
-         y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "%)"),
-         color = "Sujeto", fill = "Fracción de leche") +
-    theme_minimal() + scale_fill_manual(values = colores_fraccion)
-
-biplot_pca_muestras + biplot_pca_metabolitos
