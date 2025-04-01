@@ -7,67 +7,42 @@ format:
     toc: true
     number-sections: true
 editor: visual
+params:
+  assay: datos/assay.tsv
+  coldata: datos/coldata.txt
+  rowdata: datos/rowdata.tsv
+bibliography: references.bib
+csl: vancouver.csl
 ---
 
-::: contents
-:::
-
 ```{r setup, include=FALSE, warning = FALSE, message=FALSE}
-  knitr::opts_chunk$set(echo = TRUE)
-### CARGAR LIBRERIAS
-library(metabolomicsWorkbenchR)
-library(POMA)
-library(SummarizedExperiment)
-library(readr)    
-library(tibble)    
-library(S4Vectors)  
-library(dplyr)
-library(ggplot2)
-library(patchwork)
-library(scales)
-library(ggrepel)
-library(pheatmap)
-library(RColorBrewer)
-library(tidyr)
-library(knitr)
-library(kableExtra)
+knitr::opts_chunk$set(echo = TRUE)
+# Lista completa de paquetes requeridos
+paquetes <- c("metabolomicsWorkbenchR", "POMA", "SummarizedExperiment", "readr",
+  "tibble", "S4Vectors", "dplyr", "ggplot2", "patchwork", "scales", "ggrepel", 
+  "pheatmap", "RColorBrewer", "tidyr", "knitr", "kableExtra")
+
+# Identificar paquetes que no están instalados
+paquetes_faltantes <- paquetes[!paquetes %in% rownames(installed.packages())]
+
+# Instalar los paquetes faltantes
+if (length(paquetes_faltantes) > 0) {install.packages(paquetes_faltantes)}
+
+# Cargar los paquetes
+invisible(lapply(paquetes, library, character.only = TRUE))
 ```
 
 ```{r funciones, include=FALSE, warning = FALSE, message=FALSE}
 
-# Función para calcular abundancias promedio de un objeto SummarizedExperiment
-calcular_abundancias_promedio <- function(se_objeto) {
-  # Convertir a formato largo
-  matriz_df <- as.data.frame(assay(se_objeto)) %>%
-    rownames_to_column(var = "metabolito") %>%
-  pivot_longer(-metabolito, names_to = "Muestra", values_to = "intensidad") %>%
-    # Añadir la fracción de leche desde colData
-    left_join(as.data.frame(colData(se_objeto)) %>% 
-                rownames_to_column("Muestra"),
-              by = "Muestra")
-  
-  # Calcular media y porcentaje en un solo paso
-  matriz_resumen <- matriz_df %>%
-    group_by(Milk_fraction, metabolito) %>%
-    summarise(
-      media = mean(intensidad), #calcular la media
-      .groups = "drop_last" # no mostrar el último grupo
-    ) %>%
-    mutate(porcentaje = media / sum(media) * 100) %>% #calcular el porcentaje
-    ungroup() # desagrupar
-  
-  return(matriz_resumen)
-}
+# Función para calcular abundancias promedio de sujeto y por fraccion SummarizedExperiment
 
 calcular_abundancia_por_sujeto <- function(se_objeto) {
   # Convertir a formato largo
-  matriz_df <- as.data.frame(assay(se_objeto)) %>% 
-    rownames_to_column(var = "metabolito") %>% 
+  matriz_df <- as.data.frame(assay(se_objeto)) %>% rownames_to_column(var = "metabolito") %>% 
   pivot_longer(-metabolito, names_to = "Muestra", values_to = "intensidad") %>% 
     # Añadir la fracción de leche desde colData
     left_join(as.data.frame(colData(se_objeto)) %>% 
-                rownames_to_column("Muestra"),
-              by = "Muestra")
+                rownames_to_column("Muestra"), by = "Muestra")
   
   # Calcular media por sujeto y fracción
   matriz_resumen <- matriz_df %>% 
@@ -100,11 +75,8 @@ agrupar_por_clase <- function(se, clase) {
     column_to_rownames("clase") # Usar la clase como fila
   
   # Crear nuevo SE con la matriz agrupada
-  SummarizedExperiment(
-    assays = list(abundancia = as.matrix(matriz_df)),
-    colData = colData(se),
-    rowData = DataFrame(nombre_clase = rownames(matriz_df))
-  )
+  SummarizedExperiment( assays = list(abundancia = as.matrix(matriz_df)),
+    colData = colData(se), rowData = DataFrame(nombre_clase = rownames(matriz_df)))
 }
 
 #funcion para seleccionar los top n metabolitos y agrupar el resto "otros"
@@ -132,12 +104,23 @@ seleccionar_top_y_otros <- function(se_imputed, top_n = 20) {
   nueva_rowData <- DataFrame(nombre = rownames(nueva_matriz))
   
   # Crear el nuevo SummarizedExperiment
-  SummarizedExperiment(
-    assays = list(abundancia = nueva_matriz),
-    colData = colData(se),
-    rowData = nueva_rowData
-  )
+  SummarizedExperiment(assays = list(abundancia = nueva_matriz), colData = colData(se),
+    rowData = nueva_rowData)
 }
+
+## definir colores para todo el informe
+colores_fraccion <- c(
+  "fat"   = "#1f77b4",  # azul
+  "skim"  = "#e377c2",  # rosa
+  "whole" = "#ff7f0e"   # naranja
+)
+
+colores_sujeto <- c(
+  "BLS001A" = "#d62728",  # rojo
+  "BLS002A" = "#2ca02c",  # verde
+  "BLS003A" = "#9467bd",  # púrpura
+  "BLS010A" = "#17becf"   # celeste
+)
 ```
 
 # Resumen
@@ -154,19 +137,20 @@ seleccionar_top_y_otros <- function(se_imputed, top_n = 20) {
 
 <!-- Fuente y descripción del dataset seleccionado. -->
 
-Para el análisis se seleccionó el dataset **ST000957**, titulado *"Global metabolomics of human milk fractions"*, disponible en Metabolomics Workbench. Este estudio fue realizado por la University of Florida y se realizó utilizando LC-MS (espectrometría de masas acoplada a cromatografía líquida) para la caracterización global de metabolitos en fracciones de leche humana. El conjunto de datos contiene información correspondiente a 12 muestras biológicas de la especie Homo sapiens. Para simplificar el análisis solo se tomo
+Para el análisis se seleccionó el dataset **ST000957 [@carney]**, titulado *"Global metabolomics of human milk fractions"*, disponible en Metabolomics Workbench. Este estudio fue realizado por la University of Florida y se realizó utilizando LC-MS (espectrometría de masas acoplada a cromatografía líquida) para la caracterización global de metabolitos en fracciones de leche humana. El conjunto de datos contiene información correspondiente a 12 muestras biológicas de la especie Homo sapiens. Para simplificar el análisis solo se tomo
 
 ```{r query, warning = FALSE, message=FALSE}
-
 info_df <- as.data.frame(t(do_query('study','study_id','ST000957','summary')
                            ))[1:6, , drop = FALSE]
 
 # Mostrar con kable
-knitr::kable(info_df, col.names = c("Campo", "Valor"), 
+kable(info_df, col.names = c("Campo", "Valor"), 
              caption = "Resumen del estudio ST000957") %>%
   kable_styling(latex_options = c("striped", "hold_position", "scale_down"),
                 position = "center", font_size = 10)
 ```
+
+GitHub: https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1
 
 ## Estructura de los datos
 
@@ -186,25 +170,321 @@ knitr::kable(info_df, col.names = c("Campo", "Valor"),
 
 # Resultados
 
+## Construcción del objeto *`SummarizedExperiment`*
+
 Lo primero se se realizó es el la construcción del *`SummarizedExperiment`*, para lo cual se importaron tres tablas.
 
 1.  El ensayo: esta matriz contenía en las columnas las muestras y las filas los metabolitos.
-2.  El colData: contiene información sobre las muestras, como la fracción de leche y el sujeto a quien pertenece. Debe coincidir ocn la matriz de ensayo.
-3.  El rowData: contiene información sobre los metabolitos. En este caso se trata de la clasificación de los metabolismos según el Metabolics Workbench.
+2.  El colData: contienía información sobre las muestras, como la fracción de leche y el sujeto a quien pertenece. Debe coincidir ocn la matriz de ensayo.
+3.  El rowData: contienía información sobre los metabolitos. En este caso se trata de la clasificación de los metabolismos según el la base de datos *Metabolics Workbench*.
 
-Además, se procedió a limpiar los datos, mantener solo las columnas deseadas
+Además, se procedió a limpiar los datos, mantener solo las columnas deseadas, finalmente los valores faltantes fueron imputados con el método KNN, y no se eliminó ninguna muestra y ningún metabolito.
 
-## Estadísticas descriptivas
+```{r SummarizedExperiment, warning = FALSE, message=FALSE, echo=FALSE}
+# CARGAR MATRICES DE DATOS
+assay <- read.delim(params$assay, row.names = 1, check.names = FALSE)
+coldata <- read.delim(params$coldata, row.names = 1, check.names = FALSE)
+rowdata <- read.delim(params$rowdata, row.names = 1, check.names = FALSE)
 
-<!-- Resumen de la distribución de datos, valores faltantes, outliers, etc. -->
+# REORDENAR EL COLDATA PARA QUE COINCIDA CON LAS FILAS DE LA MATRIZ
+coldata <- coldata[colnames(assay), , drop = FALSE]
+# AÑADIR LA COLUMNA DE SUJETO EN COLDATA
+coldata$sujeto <- gsub("_.*", "", rownames(coldata))
 
-## Visualización
+# CREAR EL OBJETO SummarizedExperiment
+se <- SummarizedExperiment(
+  assays = list(count = assay),
+  colData = coldata,
+  rowData = rowdata
+)
 
-<!-- Figuras con pies explicativos: PCA, gráficos de calor, boxplots, etc. -->
+# CONSERVAR SOLO LAS COLUMAS QUE SE DESEO USAR
+colData(se) <- colData(se)[, c("Milk_fraction", "sujeto")]
+rowData(se) <- rowData(se)[, c("Standardized_name", "Formula", "Super_class", 
+                               "Main_class", "Sub_class")]
 
-## Interpretación biológica
+# CREAR UN VECTOR CON METABOLITOS QUE NO ESTAN DENTRO DE LA BASE
+# DE Metabolomics Workbench
+sin_nombre_estandarizado <- rowData(se)$Standardized_name == "-"
+# ELIMINAR ESOS METABOLITOS
+se <- se[!sin_nombre_estandarizado, ]
 
-<!-- Qué se puede deducir biológicamente del análisis. -->
+# CONVERTIR EN FACTORES A LAS VARIABLES CATEGÓRICAS
+colData(se)$Milk_fraction <- as.factor(colData(se)$Milk_fraction)
+colData(se)$sujeto <- as.factor(colData(se)$sujeto)
+
+save(se, file = "SummarizedExperiment_dataset.Rda")
+
+# SE REALIZA UNA IMPUTACIÓN CON EL METODO KNN, SIN REMOVER MUESTRAS
+se_imputed <- PomaImpute(se, method = "knn", zeros_as_na = TRUE,
+                         remove_na = FALSE)
+
+# POR ALGUNA RAZÓN ELIMINA LAS VARIABLES DE METABOLITOS, SE LAS VUELVO A AÑADIR
+rowData(se_imputed) <- rowData(se)
+
+se
+```
+
+El objeto `SummarizedExperiment` contiene un total de 158 metabolitos analizados en 12 muestras de leche humana. La matriz principal de datos, `count`, almacena las intensidades o abundancia de cada metabolito por muestra.
+
+Las filas representan metabolitos y estas variables tienen nformación adicional almacenada en `rowData`, que incluye campos como `Standardized_name`, `Formula`, `Super_class`, `Main_class` y `Sub_class`. Las columnas representan las muestras, etiquetadas como `BLS001A`, `BLS010A`, etc., y cuentan con metadatos asociados a través de `colData`, donde se especifica la fracción de leche (`Milk_fraction`) y el sujeto (`sujeto`) del que proviene cada muestra. Esta estructura permite integrar datos cuantitativos con anotaciones biológicas tanto a nivel de metabolitos como de muestras.
+
+```{r t2, echo=FALSE, warning=FALSE, message=FALSE}
+# Crear tabla por sujeto
+tabla_sujeto <- table(colData(se_imputed)$sujeto) %>%
+  as.data.frame() %>%
+  setNames(c("Sujeto", "Frecuencia_sujeto"))
+
+# Crear tabla por fracción
+tabla_fraccion <- table(colData(se_imputed)$Milk_fraction) %>%
+  as.data.frame() %>%
+  setNames(c("Fracción", "Frecuencia_fracción"))
+
+# Igualar número de filas agregando NA
+n_filas <- max(nrow(tabla_sujeto), nrow(tabla_fraccion))
+tabla_fraccion[n_filas, ] <- NA
+
+# Convertir la columna 'Fracción' a carácter y reemplazar el NA final por " "
+tabla_fraccion$Fracción <- as.character(tabla_fraccion$Fracción)
+tabla_fraccion$Fracción[4] <- " "
+tabla_fraccion$Frecuencia_fracción[4] <- " "
+
+
+# Unir en una tabla combinada
+tabla_combinada <- cbind(tabla_sujeto, tabla_fraccion)
+
+# Mostrar tabla con encabezado doble
+kable(tabla_combinada, booktabs = TRUE, align = "lcrr", 
+      caption = "Distribución de muestras por sujeto y por fracción de leche") %>%
+  kable_styling(latex_options = c("striped", "hold_position", "scale_down"),
+                position = "center", font_size = 10)
+```
+
+La Tabla 2 muestra que cada uno de los cuatro sujetos (BLS001A, BLS002A, BLS003A y BLS010A) aportó exactamente tres muestras. Por su parte, la Tabla 3 que hay cuatro muestras por cada tipo de fracción: fat, skim y whole. Esta distribución homogénea es relevante para garantizar comparabilidad entre sujetos y fracciones en los análisis posteriores.
+
+## Análisis de abundancia de metabolitos
+
+Para analizar la abundancia de metabolitos en las muestras, se seleccionaron los 30 metabolitos con mayor intensidad o abundancia y se compararon entre los distintos sujetos y las fracciones de leche (fat, skim y whole). Con el fin de obtener una visión más funcional de los perfiles metabolómicos, se realizó el mismo análisis agrupando los metabolitos según su clasificación química principal (Main class), basada en la base de datos de Metabolomics Workbench. A continuación, se presentan diagramas de barras apiladas que muestran la distribución de los metabolitos individuales y su clasificación funcional en cada fracción y sujeto.
+
+```{r abundancia, warning = FALSE, message=FALSE, fig.width=12, fig.height=12, fig.align='center', echo=FALSE, fig.cap="Abundancia de metabolitos por fracción y por sujeto."}
+
+##ABUNDANCIA TOP 50#######
+# aplicar la función
+se_top <- seleccionar_top_y_otros(se, top_n = 30)
+matriz_promedio_sujeto_top <- calcular_abundancia_por_sujeto(se_top)
+
+# Reordenar los niveles del factor 'metabolito'
+orden_metabolitos <- matriz_promedio_sujeto_top %>%
+  distinct(metabolito) %>%
+  pull(metabolito) %>%
+  setdiff("Others") %>%
+  c("Others",. )  # Poner "Others" al final
+
+# Aplicar en todos los dataframes usados en gráficos
+matriz_promedio_sujeto_top$metabolito <- 
+  factor(matriz_promedio_sujeto_top$metabolito, levels = orden_metabolitos)
+
+# Paleta de colores
+n_metab <- length(orden_metabolitos) - 1  # sin contar "Others"
+colores <- c("black", hue_pal()(n_metab))  # "Others" negro
+names(colores) <- orden_metabolitos
+
+# Abundancia absoluta por sujeto y fracción (top metabolitos)
+ab_suj_top <- ggplot(matriz_promedio_sujeto_top, 
+                     aes(x = Milk_fraction, y = media, fill = metabolito)) +
+  geom_bar(stat = "identity") + facet_wrap(~ sujeto, scales = "free_y") +
+  labs(title = "Abundancia absoluta por fracción y sujeto (Top metabolitos)",
+       x = "Fracción de leche", y = "Media de intensidad") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key.size = unit(0.5, "lines"), legend.position = "right") +
+  guides(fill = guide_legend(ncol = 2))  +
+  scale_fill_manual(values = colores)
+
+### ABUNDANCIA PROMEDIO POR CLASE
+#Crear los tres objetos
+se_mainclass  <- agrupar_por_clase(se_imputed, "Main_class")
+matriz_promedio_sujeto_mainclass  <- calcular_abundancia_por_sujeto(se_mainclass)
+
+# graficos para MAIN CLASE
+ab_main_suj <- ggplot(matriz_promedio_sujeto_mainclass, 
+                      aes(x = Milk_fraction, y = media, fill = metabolito)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ sujeto, scales = "free_y") +
+  labs(title = "Abundancia absoluta promedio por fracción y sujeto (Main class)",
+       x = "Fracción de leche", y = "Media de intensidad") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                            legend.key.size = unit(0.5, "lines"), 
+                            legend.position = "right") +
+  guides(fill = guide_legend(ncol = 2))
+
+
+ab_suj_top / ab_main_suj + plot_annotation(tag_levels = 'A') 
+```
+
+Las Figuras A y B presentan la abundancia absoluta de metabolitos en muestras de leche humana, separadas en tres fracciones: fat (fracción lipídica), skim (fracción acuosa) y whole (leche entera), para cuatro sujetos distintos.
+
+En la Figura A, se muestra la distribución de los 50 metabolitos más abundantes en cada combinación de fracción y sujeto. Se observa que la fracción skim tiende a presentar mayores niveles de varios metabolitos en comparación con fat o whole, especialmente en los sujetos BLS001A y BLS003A. Esto sugiere que una porción significativa de los metabolitos detectados tiene carácter hidrosoluble. Además, se evidencia variabilidad entre sujetos en la intensidad relativa de metabolitos individuales.
+
+Por su parte, la Figura B agrupa los metabolitos por su clase química principal (Main class), lo que permite identificar patrones más generales. Se destacan las clases “Amino acids and peptides” y “Glycerophosphocholines” como las más abundantes en todas las fracciones y sujetos, lo que sugiere una alta representación de compuestos nitrogenados y fosfolípidos en la leche materna. La consistencia en estas clases entre fracciones y sujetos indica una estabilidad funcional en la composición química general de la leche, más allá de las diferencias individuales en metabolitos específicos.
+
+## Comparación entre muestras
+
+Primero es necesario normalizar
+
+```{r normalizar, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
+
+### NORMALIZAR DATOS
+se_normalized <- se_imputed %>% 
+  PomaNorm(method = "log_pareto")
+
+# POR ALGUNA RAZÓN ELIMINA LAS VARIABLES DE METABOLITOS
+rowData(se_normalized) <- rowData(se)
+
+se_normalized
+```
+
+Ahora diagramas de cajas
+
+```{r densidsad, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
+
+# grafico de densidad de datos
+# Densidad antes de la normalización
+den_no_normalizado <- PomaDensity(se_imputed, x = "features") +
+  labs(title = "Densidad de intensidades antes de la normalización") +
+  theme(legend.position = "none")
+
+# Densidad después de la normalización
+den_normalizado <- PomaDensity(se_normalized, x = "features") +
+  labs(title = "Densidad de intensidades después de la normalización") +
+  theme(legend.position = "none")
+
+# Unir gráficos con títulos
+den_no_normalizado / den_normalizado +
+  plot_annotation(tag_levels = 'A') # para poner etiquetas en los gráficos
+```
+
+Intensidad
+
+```{r Intensidad, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
+
+# Convertir a formato largo
+df_long <- as.data.frame(assay(se_normalized)) %>%
+  tibble::rownames_to_column("metabolito") %>%
+  pivot_longer(-metabolito, names_to = "muestra", values_to = "valor") %>%
+  left_join(as.data.frame(colData(se_normalized)) %>%
+              tibble::rownames_to_column("muestra"),
+            by = "muestra")
+
+# Gráfico de intensidad por sujeto y fracción
+intensidad_normalizada_sujeto <- ggplot(df_long, 
+                                        aes(x = Milk_fraction, y = valor, 
+                                            fill = Milk_fraction)) +
+  geom_boxplot(outlier.size = 0.5) +
+  facet_wrap(~ sujeto, scales = "free_y") +
+  labs(
+    title = "Distribución normalizada de intensidades por fracción y muestra",
+    x = "Fracción de leche",
+    y = "Intensidad normalizada"
+  ) +
+  theme_minimal() + theme(legend.position = "none") + 
+  scale_fill_manual(values = colores_fraccion)
+
+# Extraer info y preparar
+matriz <- assay(se_normalized)
+metadata <- as.data.frame(colData(se_normalized)) %>%
+  rownames_to_column("Muestra")
+
+# Calcular metabolitos detectados (abundancia > 0) por muestra
+# Calcular número de metabolitos detectados por muestra (2 es para cada col.) 
+metabolitos_por_muestra <- apply(matriz, 2, function(x) sum(x > 0))
+
+# Agregar al metadata
+metadata$metabolitos_detectados <- metabolitos_por_muestra
+colData(se_normalized)[["metabolitos_detectados"]] <- metabolitos_por_muestra
+
+# Agrupar por sujeto y fracción, y graficar
+num_metabolitos_sujeto <- ggplot(metadata, 
+                                 aes(x = Milk_fraction, 
+                                     y = metabolitos_detectados, 
+                                     group = sujeto, color = sujeto)) +
+    geom_line(size = 1.1) +
+    geom_point(size = 2) +
+    labs(title = "Metabolitos detectados por fracción de leche y sujeto",
+         x = "Fracción de leche", y = "Número de metabolitos detectados") +
+    theme_minimal() + scale_color_manual(values = colores_sujeto)
+
+intensidad_normalizada_sujeto / num_metabolitos_sujeto +
+  plot_annotation(tag_levels = 'A')
+
+```
+
+```{r heatmap, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
+
+#Calcular varianzas y seleccionar los top más variables
+varianzas <- apply(matriz, 1, var, na.rm = TRUE) # Calcular varianza por fila
+# Filtrar las que no son 0
+varianzas_filtradas <- varianzas[varianzas > 0]
+# Seleccionar los 30 más variables
+top_n <- min(30, length(varianzas_filtradas)) 
+# Nombres de los top 30
+top_metabolitos <- names(sort(varianzas_filtradas, decreasing = TRUE))[1:top_n] 
+# Filtrar la matriz para quedarme con los top 30
+matriz_top_var <- matriz[top_metabolitos, ] 
+
+# Anotaciones (Milk_fraction y sujeto)
+anotaciones <- as.data.frame(colData(se_normalized)) %>% # Extraer metadata
+  select(Milk_fraction, sujeto) # Seleccionar las columnas de interés
+rownames(anotaciones) <- colnames(se_normalized) # Asignar nombres de filas
+
+# colores para para la fraccion y los sujetos, que se definieron antes
+colores_para_heatmap <- list(
+  Milk_fraction = colores_fraccion,
+  sujeto = colores_sujeto
+)
+
+# Heatmap final
+heatmap <- pheatmap(matriz_top_var,
+           annotation_col = anotaciones,
+           annotation_colors = colores_para_heatmap,
+           show_rownames = TRUE,
+           show_colnames = FALSE,
+           cluster_rows = TRUE,
+           cluster_cols = TRUE,
+           color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
+           main = "Heatmap de los 30 metabolitos más variables",
+           fontsize_row = 7)
+
+heatmap
+
+# realizar pca
+# Transponer la matriz para calcular pca para muestras
+matriz_pca <- t(assay(se_normalized)) 
+pca <- prcomp(matriz_pca, scale. = TRUE)
+
+# Extraer coordenadas del PCA
+pca_df <- as.data.frame(pca$x) %>% # Convertir a dataframe
+  rownames_to_column("Muestra") %>% # Añadir nombres de filas
+  left_join(as.data.frame(colData(se_normalized)) %>% # Añadir metadata
+              tibble::rownames_to_column("Muestra"), 
+            by = "Muestra") # Unir por la columna Muestra
+
+
+# Graficar PCA de las muestras
+biplot_pca_muestras  <-  ggplot(pca_df, aes(x = PC1, y = PC2, color = sujeto, 
+                                            shape = Milk_fraction, 
+                                            label = Muestra)) +
+  geom_point(size = 4) +
+  geom_text_repel(size = 3.5, max.overlaps = 100) +
+  labs(title = "PCA de muestras basado en intensidades",
+       x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"),
+       y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "% var)")) +
+  theme_minimal() +
+  theme(legend.position = "right") + scale_color_manual(values = colores_sujeto)
+
+biplot_pca_muestras
+```
 
 # Discusión
 
@@ -217,5 +497,3 @@ Además, se procedió a limpiar los datos, mantener solo las columnas deseadas
 # Referencias
 
 <!-- Bibliografía (si aplica) y enlace al repositorio de GitHub -->
-
--   GitHub: <https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1>

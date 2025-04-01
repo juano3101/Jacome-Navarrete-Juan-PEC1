@@ -18,6 +18,7 @@ library(pheatmap)
 library(RColorBrewer)
 library(tidyr)
 library(knitr)
+library(kableExtra)
 
 # Función para calcular abundancias promedio por sujeto de un objeto SummarizedExperiment
 calcular_abundancia_por_sujeto <- function(se_objeto) {
@@ -173,7 +174,9 @@ sum(is.na(assay(se_imputed)))
 metabolitos_cero <- rowSums(assay(se_imputed)) == 0
 sum(metabolitos_cero) # cauntos 0 tiene
 
-table(colData(se_normalized)$Milk_fraction)
+table(colData(se_imputed)$Milk_fraction)
+
+table(colData(se_imputed)$sujeto)
 
 #################################################################
 ### ANALISIS DE ABUNDANCIA ABSOLUTA Y RELATIVA DE LOS METABOLITOS
@@ -228,7 +231,6 @@ ab_main_suj <- ggplot(matriz_promedio_sujeto_mainclass,
                             legend.key.size = unit(0.5, "lines"), 
                             legend.position = "right") +
   guides(fill = guide_legend(ncol = 2))
-
 
 
 ab_suj_top / ab_main_suj + plot_annotation(tag_levels = 'A') 
@@ -327,8 +329,6 @@ num_metabolitos_sujeto <- ggplot(metadata, aes(x = Milk_fraction, y = metabolito
 
 intensidad_normalizada_sujeto + num_metabolitos_sujeto
 
-
-
 # Calcular media, SD y SEM por fracción
 resumen_fraccion <- metadata %>%
   group_by(Milk_fraction) %>%
@@ -338,19 +338,6 @@ resumen_fraccion <- metadata %>%
     n = n(),
     sem = sd / sqrt(n) #calcular el error estándar de la media
   )
-
-# Calcular media, SD y SEM por sujeto
-resumen_sujeto <- metadata %>%
-  group_by(sujeto) %>%
-  summarise(
-    media = mean(metabolitos_detectados), #calcular la media
-    sd = sd(metabolitos_detectados), #calcular la desviación estándar
-    n = n(),
-    sem = sd / sqrt(n) #calcular el error estándar de la media
-  )
-
-
-
 
 #Calcular varianzas y seleccionar los top más variables
 varianzas <- apply(matriz, 1, var, na.rm = TRUE) # Calcular varianza por fila
