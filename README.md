@@ -1,6 +1,4 @@
-# Título del proyecto
-Informe PEC1 - Análisis de datos metabolómicos
-
+# Informe PEC1 - Análisis de datos metabolómicos
 ## Descripción
 Este repositorio contiene el análisis exploratorio del estudio ST000957, basado en perfiles metabolómicos de leche humana. 
 
