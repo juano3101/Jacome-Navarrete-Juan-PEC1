@@ -142,8 +142,13 @@ Este estudio fue realizado por la University of Florida utilizando espectrometr�
 Las muestras fueron recolectadas en estado de ayuno, aproximadamente 30 mL de leche y posterior fraccionamiento por centrifugación. No se especificó el estadio de lactancia al momento de la recolección.
 
 ```{r query, warning = FALSE, message=FALSE, echo=FALSE}
-info_df <- as.data.frame(t(do_query('study','study_id','ST000957','summary')
-                           ))[1:6, , drop = FALSE]
+
+#BUSCA LA INFORMACIÓN EN LA BASE DE DATOS DE Metabolomics Workbench
+#necesita conexión a internet
+info_df <- as.data.frame(t(do_query('study',
+                                    'study_id',
+                                    'ST000957',
+                                    'summary')))[1:6, , drop = FALSE]
 
 # Mostrar con kable
 kable(info_df, col.names = c("Campo", "Valor"), 
@@ -160,14 +165,14 @@ Los datos fueron obtenidos de tres archivos diferentes con los que se creó obje
 
 2.  Una tabla de metadatos de muestra (`colData`): contiene información sobre las muestras y debe coincidir con las columnas de matriz del ensayo. Las variables de las muestras son:
 
-  -   `sujeto`: identifica a la madre donante (BLS001A, BLS002A, etc.).
-  -   `Milk_fraction`: indica si la muestra corresponde a la fracción lipídica, acuosa o entera.
+-   `sujeto`: identifica a la madre donante (BLS001A, BLS002A, etc.).
+-   `Milk_fraction`: indica si la muestra corresponde a la fracción lipídica, acuosa o entera.
 
 3.  Una tabla de anotaciones de metabolitos (`rowData`): contiene información sobre los metabolitos. En este caso se trata de la clasificación de los metabolismos según el la base de datos *Metabolics Workbench*. Debe coincidir con las filas de matriz del ensayo.
 
-  -   `Standardized_name`: nombre estandarizado según *Metabolomics Workbench*
-  -   `Formula`: fórmula química.
-  -   `Super_class`, `Main_class`, `Sub_class`: Diferentes niveles de clasificación química del metabolito.
+-   `Standardized_name`: nombre estandarizado según *Metabolomics Workbench*
+-   `Formula`: fórmula química.
+-   `Super_class`, `Main_class`, `Sub_class`: Diferentes niveles de clasificación química del metabolito.
 
 ## Procedimiento y Herramientas de análisis
 
@@ -179,11 +184,11 @@ Desde este punto se realizó un análisis exploratorio. Para lo cual que usaron 
 
 Además se crearon tres funciones personalizadas:
 
-  -   `calcular_abundancia_por_sujeto(objeto_se)`: para obtener las abundancias promedios de los metabolitos, llamada
+-   `calcular_abundancia_por_sujeto(objeto_se)`: para obtener las abundancias promedios de los metabolitos, llamada
 
-  -   `seleccionar_top_y_otros(se, top_n = 20)` : para obtener un objeto `SummarizedExperiment` con los top-n metabolitos más abundantes.
+-   `seleccionar_top_y_otros(se, top_n = 20)` : para obtener un objeto `SummarizedExperiment` con los top-n metabolitos más abundantes.
 
-  -   `agrupar_por_clase(se, clase)`: obtiene `SummarizedExperiment` agrupando los metabolitos según su clasificación química, sumando las abundancias.
+-   `agrupar_por_clase(se, clase)`: obtiene `SummarizedExperiment` agrupando los metabolitos según su clasificación química, sumando las abundancias.
 
 En cuanto al análisis, en primer lugar se exploraron las intensidades absolutas de los metabolitos por fracción y por madre, tanto a nivel de metabolito individual como de clase funcional, empleando gráficos de barras apiladas. Esto permitió explorar el perfil metabólico de las muestras. Para analizar la abundancia de metabolitos individuales, se seleccionaron los 30 metabolitos con mayor intensidad o abundancia.
 
