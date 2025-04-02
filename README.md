@@ -23,8 +23,4 @@ https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=S
 ## Requisitos
 - R (versión ≥ 4.2)
 - RStudio
-
-## Cómo reproducir el análisis
-1. Clona el repositorio:
-```bash
-git clone https://github.com/tu_usuario/nombre_del_repo.git
+- Quarto
