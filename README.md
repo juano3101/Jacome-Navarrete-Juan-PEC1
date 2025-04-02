@@ -20,7 +20,7 @@ https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=S
 - `informe_files/`: Carpeta con figuras generadas automáticamente por Quarto.
 - `references.bib`: Bibliografía utilizada en formato BibTeX.
 - `apa.csl` / `vancouver.csl`: Estilos de citación. Se uso APA para el informe final
-- - `script_pruebas.R`: Script de pruebas, usado para hacer ensayos de código y más analisis que no se incluyeron en el informe final
+- `script_pruebas.R`: Script de pruebas, usado para hacer ensayos de código y más analisis que no se incluyeron en el informe final
 
 ## Requisitos
 - R (versión ≥ 4.2)
