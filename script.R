@@ -152,7 +152,7 @@ se <- se[!sin_nombre_estandarizado, ]
 colData(se)$Milk_fraction <- as.factor(colData(se)$Milk_fraction)
 colData(se)$sujeto <- as.factor(colData(se)$sujeto)
 
-
+### GUARDAR OBJETO SummarizedExperiment_dataset.Rda
 #save(se, file = "SummarizedExperiment_dataset.Rda")
 
 # SE REALIZA UNA IMPUTACIÓN CON EL METODO KNN, SIN REMOVER MUESTRAS
@@ -160,7 +160,6 @@ se_imputed <- PomaImpute(se, method = "knn", zeros_as_na = TRUE, remove_na = FAL
 
 # POR ALGUNA RAZÓN ELIMINA LAS VARIABLES DE LOS METABOLITOS, SE LAS VUELVO A AÑADIR
 rowData(se_imputed) <- rowData(se)
-
 
 # REVISIÓN DEL OBJETO
 se_imputed
@@ -174,17 +173,19 @@ sum(is.na(assay(se_imputed)))
 metabolitos_cero <- rowSums(assay(se_imputed)) == 0
 sum(metabolitos_cero) # cauntos 0 tiene
 
-table(colData(se_imputed)$Milk_fraction)
 
+# FRACUENCIAS DE DATOS DE LAS MUESTRAS
+table(colData(se_imputed)$Milk_fraction)
 table(colData(se_imputed)$sujeto)
 
 #################################################################
 ### ANALISIS DE ABUNDANCIA ABSOLUTA Y RELATIVA DE LOS METABOLITOS
 #################################################################
 
-##ABUNDANCIA TOP 50#######
-# aplicar la función
-se_top <- seleccionar_top_y_otros(se, top_n = 50)
+##ABUNDANCIA TOP 30#######
+# aplicar la función declarada para obtener los top 30 metabolitos
+se_top <- seleccionar_top_y_otros(se, top_n = 30)
+# aplicar la función para promediar la intensidad agrupada en fración y madre
 matriz_promedio_sujeto_top <- calcular_abundancia_por_sujeto(se_top)
 
 # Reordenar los niveles del factor 'metabolito'
@@ -195,48 +196,62 @@ orden_metabolitos <- matriz_promedio_sujeto_top %>%
   c("Others",. )  # Poner "Others" al final
 
 # Aplicar en todos los dataframes usados en gráficos
-matriz_promedio_sujeto_top$metabolito <- factor(matriz_promedio_sujeto_top$metabolito, levels = orden_metabolitos)
+matriz_promedio_sujeto_top$metabolito <- 
+  # conierte en factor los metabolitos
+  factor(matriz_promedio_sujeto_top$metabolito, levels = orden_metabolitos)
 
-# Paleta de colores
+# Paleta de colores, para que others sea de color negro
 n_metab <- length(orden_metabolitos) - 1  # sin contar "Others"
 colores <- c("black", hue_pal()(n_metab))  # "Others" negro
 names(colores) <- orden_metabolitos
 
-# Abundancia absoluta por sujeto y fracción (top metabolitos)
+# gráfico bundancia absoluta por sujeto y fracción (top 30 metabolitos)
 ab_suj_top <- ggplot(matriz_promedio_sujeto_top, 
                      aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") + facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia absoluta por fracción y sujeto (Top metabolitos)",
+  labs(title = "Abundancia absoluta por fracción y sujeto (Top 30 metabolitos)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.key.size = unit(0.5, "lines"), legend.position = "right") +
   guides(fill = guide_legend(ncol = 2))  +
-  scale_fill_manual(values = colores)
+  scale_fill_manual(values = colores) #leyenda en dos columnas
 
 ### ABUNDANCIA PROMEDIO POR CLASE
-#Crear los tres objetos
+#Crear el obejeto SE agrupado por Main_class, con la función creada
 se_mainclass  <- agrupar_por_clase(se_imputed, "Main_class")
-matriz_promedio_sujeto_mainclass  <- calcular_abundancia_por_sujeto(se_mainclass)
+# aplicar la función para promediar la intensidad agrupada en fración y madre
+matriz_promedio_sujeto_mainclass<- calcular_abundancia_por_sujeto(se_mainclass)
 
-# graficos para MAIN CLASE
+# gráficos de abundancia para MAIN CLASE
 ab_main_suj <- ggplot(matriz_promedio_sujeto_mainclass, 
                       aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
   labs(title = "Abundancia absoluta promedio por fracción y sujeto (Main class)",
        x = "Fracción de leche", y = "Media de intensidad") +
-  theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-                            legend.key.size = unit(0.5, "lines"), 
-                            legend.position = "right") +
-  guides(fill = guide_legend(ncol = 2))
+  theme_minimal() +
+  guides(fill = guide_legend(ncol = 2)) #leyenda en dos columnas
 
-
+# con el paquete patchwork se unen los gráficos
+# plot_annotation(tag_levels = 'A') enumera los gráficos
 ab_suj_top / ab_main_suj + plot_annotation(tag_levels = 'A') 
 
-### NORMALIZAR DATOS
+# obtengo los datos de los gráficos para redactar precisamente los metabolitos abundantes
+top5_por_fraccion <- ab_suj_top$data %>%
+  group_by(Milk_fraction) %>%
+  arrange(desc(media), .by_group = TRUE) %>%
+  filter(row_number() <= 5)
 
+top5_por_fraccion_class <- ab_main_suj$data %>%
+  group_by(Milk_fraction) %>%
+  arrange(desc(media), .by_group = TRUE) %>%
+  filter(row_number() <= 5)
+
+
+#################################################################
+### ANALISIS MULTIVARIANTE
+#################################################################
+
+### NORMALIZAR DATOS
 se_normalized <- se_imputed %>% 
   PomaNorm(method = "log_pareto")
 
@@ -250,94 +265,11 @@ colData(se_normalized)
 rowData(se_normalized)
 
 
-# grafico de densidad de datos
-# Densidad antes de la normalización
-den_no_normalizado <- PomaDensity(se_imputed, x = "features") +
-  labs(title = "Densidad de intensidades antes de la normalización") +
-  theme(legend.position = "none")
-
-# Densidad después de la normalización
-den_normalizado <- PomaDensity(se_normalized, x = "features") +
-  labs(title = "Densidad de intensidades después de la normalización") +
-  theme(legend.position = "none")
-
-# Unir gráficos con títulos
-den_no_normalizado / den_normalizado +
-  plot_annotation(tag_levels = 'A') # para poner etiquetas en los gráficos
-
-
-# Convertir a formato largo
-df_long <- as.data.frame(assay(se_normalized)) %>%
-  tibble::rownames_to_column("metabolito") %>%
-  pivot_longer(-metabolito, names_to = "muestra", values_to = "valor") %>%
-  left_join(as.data.frame(colData(se_normalized)) %>%
-              tibble::rownames_to_column("muestra"),
-            by = "muestra")
-
-# Gráfico de intensidad por sujeto y fracción
-intensidad_normalizada_sujeto <- ggplot(df_long, aes(x = Milk_fraction, y = valor, fill = Milk_fraction)) +
-  geom_boxplot(outlier.size = 0.5) +
-  facet_wrap(~ sujeto, scales = "free_y") +
-  labs(
-    title = "Distribución normalizada de intensidades por fracción y muestra",
-    x = "Fracción de leche",
-    y = "Intensidad normalizada"
-  ) +
-  theme_minimal() + theme(legend.position = "none") + scale_fill_manual(values = colores_fraccion)
-
-
-intensidad_normalizada_sujeto
-
-
-
-# no hay outliers
-se_normalized
-PomaOutliers(se_imputed)$data
-
-# Gráfico de outliers
-outliers_plot_no_normalizados <- PomaOutliers(se_imputed)$polygon_plot + scale_fill_manual(values = colores_fraccion) +
-  theme_minimal() + theme(legend.position = "none")
-
-outliers_plot_normalizados <- PomaOutliers(se_normalized)$polygon_plot + scale_fill_manual(values = colores_fraccion) +
-  theme_minimal()
-
-outliers_plot_no_normalizados + outliers_plot_normalizados + plot_layout(guides = "collect") +
-  plot_annotation(tag_levels = 'A') 
-
-  
 
 # Extraer info y preparar
 matriz <- assay(se_normalized)
 metadata <- as.data.frame(colData(se_normalized)) %>%
   rownames_to_column("Muestra")
-
-# Calcular metabolitos detectados (abundancia > 0) por muestra
-# Calcular número de metabolitos detectados por muestra (2 es para cada col.) 
-metabolitos_por_muestra <- apply(matriz, 2, function(x) sum(x > 0))
-
-# Agregar al metadata
-metadata$metabolitos_detectados <- metabolitos_por_muestra
-colData(se_normalized)[["metabolitos_detectados"]] <- metabolitos_por_muestra
-
-# Agrupar por sujeto y fracción, y graficar
-num_metabolitos_sujeto <- ggplot(metadata, aes(x = Milk_fraction, y = metabolitos_detectados, group = sujeto, color = sujeto)) +
-    geom_line(size = 1.1) +
-    geom_point(size = 2) +
-    labs(title = "Metabolitos detectados por fracción de leche y sujeto",
-         x = "Fracción de leche", y = "Número de metabolitos detectados") +
-    theme_minimal() + scale_color_manual(values = colores_sujeto)
-
-intensidad_normalizada_sujeto + num_metabolitos_sujeto
-
-# Calcular media, SD y SEM por fracción
-resumen_fraccion <- metadata %>%
-  group_by(Milk_fraction) %>%
-  summarise(
-    media = mean(metabolitos_detectados), #calcular la media
-    sd = sd(metabolitos_detectados), #calcular la desviación estándar
-    n = n(),
-    sem = sd / sqrt(n) #calcular el error estándar de la media
-  )
 
 #Calcular varianzas y seleccionar los top más variables
 varianzas <- apply(matriz, 1, var, na.rm = TRUE) # Calcular varianza por fila
@@ -366,11 +298,9 @@ heatmap <- pheatmap(matriz_top_var,
            cluster_rows = TRUE,
            cluster_cols = TRUE,
            color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
-           main = "Heatmap de los 30 metabolitos más variables",
            fontsize_row = 7)
 
 heatmap
-
 
 
 # realizar pca
@@ -390,12 +320,49 @@ pca_df <- as.data.frame(pca$x) %>% # Convertir a dataframe
 biplot_pca_muestras  <-  ggplot(pca_df, aes(x = PC1, y = PC2, color = sujeto, shape = Milk_fraction, label = Muestra)) +
   geom_point(size = 4) +
   geom_text_repel(size = 3.5, max.overlaps = 100) +
-  labs(title = "PCA de muestras basado en intensidades",
-       x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"),
+  labs(x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"),
        y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "% var)")) +
   theme_minimal() +
   theme(legend.position = "right") + scale_color_manual(values = colores_sujeto)
 
 biplot_pca_muestras
 
+########################
+##ANEXOS
+########################
 
+
+# Calcular metabolitos detectados (abundancia > 0) por muestra
+# Calcular número de metabolitos detectados por muestra (2 es para cada col.) 
+metabolitos_por_muestra <- apply(matriz, 2, function(x) sum(x > 0))
+
+# Agregar al metadata
+metadata$metabolitos_detectados <- metabolitos_por_muestra
+colData(se_normalized)[["metabolitos_detectados"]] <- metabolitos_por_muestra
+
+# Agrupar por sujeto y fracción, y graficar
+num_metabolitos_sujeto <- ggplot(metadata, aes(x = Milk_fraction, y = metabolitos_detectados, group = sujeto, color = sujeto)) +
+  geom_line(size = 1.1) +
+  geom_point(size = 2) +
+  labs(title = "Metabolitos detectados por fracción de leche y sujeto",
+       x = "Fracción de leche", y = "Número de metabolitos detectados") +
+  theme_minimal() + scale_color_manual(values = colores_sujeto)
+
+num_metabolitos_sujeto
+
+# Calcular media, SD y SEM por fracción
+resumen_fraccion <- metadata %>%
+  group_by(Milk_fraction) %>%
+  summarise(
+    media = mean(metabolitos_detectados), #calcular la media
+    sd = sd(metabolitos_detectados), #calcular la desviación estándar
+    n = n(),
+    sem = sd / sqrt(n) #calcular el error estándar de la media
+  )
+
+# grafico de densidad de datos
+# Densidad después de la normalización
+den_normalizado <- PomaDensity(se_normalized, x = "features") +
+  theme(legend.position = "none")
+
+den_normalizado 

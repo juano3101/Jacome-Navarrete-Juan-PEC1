@@ -12,7 +12,7 @@ params:
   coldata: datos/coldata.txt
   rowdata: datos/rowdata.tsv
 bibliography: references.bib
-csl: vancouver.csl
+csl: apa.csl
 ---
 
 ```{r setup, include=FALSE, warning = FALSE, message=FALSE}
@@ -35,7 +35,6 @@ invisible(lapply(paquetes, library, character.only = TRUE))
 ```{r funciones, include=FALSE, warning = FALSE, message=FALSE}
 
 # Función para calcular abundancias promedio de sujeto y por fraccion SummarizedExperiment
-
 calcular_abundancia_por_sujeto <- function(se_objeto) {
   # Convertir a formato largo
   matriz_df <- as.data.frame(assay(se_objeto)) %>% rownames_to_column(var = "metabolito") %>% 
@@ -78,6 +77,7 @@ agrupar_por_clase <- function(se, clase) {
   SummarizedExperiment( assays = list(abundancia = as.matrix(matriz_df)),
     colData = colData(se), rowData = DataFrame(nombre_clase = rownames(matriz_df)))
 }
+
 
 #funcion para seleccionar los top n metabolitos y agrupar el resto "otros"
 seleccionar_top_y_otros <- function(se_imputed, top_n = 20) {
@@ -125,21 +125,23 @@ colores_sujeto <- c(
 
 # Resumen
 
-<!-- Breve resumen del análisis, el dataset, las herramientas utilizadas y los resultados más relevantes (aprox. 150 palabras). -->
+Se analizó el perfil metabolómico de 12 muestras de leche humana, correspondientes a tres fracciones (entera, lipídica y acuosa) de cuatro madres, utilizando datos del estudio ST000957. Se construyó un objeto `SummarizedExperiment` para proceder con la exploración de los datos. Las fracciones acuosa y entera presentaron mayor cantidad y concentración de metabolitos que la lipídica, especialmente compuestos hidrosolubles como phosphocholine y L-carnitine. Al agrupar por clase química, destacaron aminoácidos, péptidos y colinas. El análisis multivariante reveló que las diferencias entre madres fueron más marcadas que entre fracciones. Además, algunos metabolitos (como ácidos biliares conjugados) se concentraron en fracciones lipídicas, reflejando su afinidad hidrofóbica. Las limitaciones incluyeron el uso exclusivo del modo positivo, lo que pudo evitar la detección de otros metabolitos como carbohidratos.
 
-# Objetivos
+# Objetivo
 
-<!-- Objetivos generales y específicos del análisis. -->
+El presente trabajo tiene como objetivo principal analizar las diferencias y patrones del perfil metabolómico de la leche humana recolectada en distintas fracciones (entera, lipídica y acuosa) y de diferentes madres.
 
 # Métodos
 
 ## Origen de los datos
 
-<!-- Fuente y descripción del dataset seleccionado. -->
+Para el análisis se seleccionó el dataset **ST000957 [@carney]**, titulado *"Global metabolomics of human milk fractions"*, disponible en Metabolomics Workbench. Se trata de un estudio transversal con 12 muestras biológicas de leche humana, que analiza el perfil metabólico en tres fracciones de la leche: lipídica (fat), acuosa (skim) y entera (whole).
 
-Para el análisis se seleccionó el dataset **ST000957 [@carney]**, titulado *"Global metabolomics of human milk fractions"*, disponible en Metabolomics Workbench. Este estudio fue realizado por la University of Florida y se realizó utilizando LC-MS (espectrometría de masas acoplada a cromatografía líquida) para la caracterización global de metabolitos en fracciones de leche humana. El conjunto de datos contiene información correspondiente a 12 muestras biológicas de la especie Homo sapiens. Para simplificar el análisis solo se tomo
+Este estudio fue realizado por la University of Florida utilizando espectrometría de masas acoplada a cromatografía líquida (LC-MS). Para simplificar el análisis solo se centró exclusivamente en metabolitos detectados bajo modo de ionización positiva.
 
-```{r query, warning = FALSE, message=FALSE}
+Las muestras fueron recolectadas en estado de ayuno, aproximadamente 30 mL de leche y posterior fraccionamiento por centrifugación. No se especificó el estadio de lactancia al momento de la recolección.
+
+```{r query, warning = FALSE, message=FALSE, echo=FALSE}
 info_df <- as.data.frame(t(do_query('study','study_id','ST000957','summary')
                            ))[1:6, , drop = FALSE]
 
@@ -150,35 +152,74 @@ kable(info_df, col.names = c("Campo", "Valor"),
                 position = "center", font_size = 10)
 ```
 
-GitHub: https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1
-
 ## Estructura de los datos
 
-<!-- Número de muestras, variables, tipo de datos (metabolitos, intensidades, etc.). -->
+Los datos fueron obtenidos de tres archivos diferentes con los que se creó objeto **`SummarizedExperiment`**. Los archivos fueron:
 
-## Herramientas utilizadas
+1.  Una matriz de abundancias (`assay`): esta matriz contiene en las columnas las muestras y las filas los metabolitos. Cada celda o combinación de fila y columna es un numero entero que representa la cuantificación de metabolitos en cada muestra.
 
-<!-- R, Bioconductor, SummarizedExperiment, paquetes relevantes, entorno de trabajo. -->
+2.  Una tabla de metadatos de muestra (`colData`): contiene información sobre las muestras y debe coincidir con las columnas de matriz del ensayo. Las variables de las muestras son:
 
-## Procedimiento de análisis
+  -   `sujeto`: identifica a la madre donante (BLS001A, BLS002A, etc.).
+  -   `Milk_fraction`: indica si la muestra corresponde a la fracción lipídica, acuosa o entera.
 
-<!-- Cómo se procesaron los datos: carga, limpieza, transformación, etc. -->
+3.  Una tabla de anotaciones de metabolitos (`rowData`): contiene información sobre los metabolitos. En este caso se trata de la clasificación de los metabolismos según el la base de datos *Metabolics Workbench*. Debe coincidir con las filas de matriz del ensayo.
 
-## Exploración estadística
+  -   `Standardized_name`: nombre estandarizado según *Metabolomics Workbench*
+  -   `Formula`: fórmula química.
+  -   `Super_class`, `Main_class`, `Sub_class`: Diferentes niveles de clasificación química del metabolito.
 
-<!-- Técnicas empleadas: PCA, clustering, boxplots, correlaciones, etc. -->
+## Procedimiento y Herramientas de análisis
+
+El proceso de análisis fue realizado en su totalidad en R (versión 4.4.2), y el presente informe fue generado con Quarto.
+
+En primero lugar se busco los datos del proyecto con el paquete `metabolomicsWorkbenchR` utilizando la función `do_query()` para acceder al estudio ST000957. Luego se procedió a crear el objeto `SummarizedExperiment`, con el paquete del mismo nombre. Tras examinar su estructura, se identificó la presencia de datos faltantes, los cuales fueron imputados mediante el algoritmo KNN utilizando el paquete `POMA`. La normalización de los datos también se llevó a cabo con `POMA`, mediante la transformación log-pareto.
+
+Desde este punto se realizó un análisis exploratorio. Para lo cual que usaron paquetes comunes de R y Bioconductor. Algunos de estos paquetes son **`ggplot2`**, junto con herramientas complementarias para mejorar la visualización y **`patchwork`**, que facilitó la organización y combinación de gráficos. Las tablas se generaron con los paquetes **`knitr`** y **`kableExtra`**.
+
+Además se crearon tres funciones personalizadas:
+
+  -   `calcular_abundancia_por_sujeto(objeto_se)`: para obtener las abundancias promedios de los metabolitos, llamada
+
+  -   `seleccionar_top_y_otros(se, top_n = 20)` : para obtener un objeto `SummarizedExperiment` con los top-n metabolitos más abundantes.
+
+  -   `agrupar_por_clase(se, clase)`: obtiene `SummarizedExperiment` agrupando los metabolitos según su clasificación química, sumando las abundancias.
+
+En cuanto al análisis, en primer lugar se exploraron las intensidades absolutas de los metabolitos por fracción y por madre, tanto a nivel de metabolito individual como de clase funcional, empleando gráficos de barras apiladas. Esto permitió explorar el perfil metabólico de las muestras. Para analizar la abundancia de metabolitos individuales, se seleccionaron los 30 metabolitos con mayor intensidad o abundancia.
+
+Posteriormente, tras la normalización, se procedió obtener el número de metabolitos detectados por fracción y madre (Anexo 1).
+
+Siguiendo, se realizó heatmap con el paquete `pheatmap`. Para esto se calculó la varianza por metabolito, y se seleccionaron los 20 con mayor variabilidad, para comparar entre muestras. La función `pheatmap()` también me da la opción de realizar una clusterización entre variables de las muestras, que son la fracción de leche y la madre donadora.
+
+-   Si el metabolito se observa en rojo, tiene mayor abundancia en esa muestra (por encima del promedio);
+
+-   Si esta en azul, tiene menor abundancia (por debajo del promedio);
+
+-   Y si esta en blanco ese metabolito tiene un valor promedio en esa muestra.
+
+Finalmente, con la función `prcomp()` se realizó un análisis de componentes principales (PCA) y se gráfico los primeros dos componentes en un diagrama de dispersión, para observar como se distribuyen las muestras en función de su perfil metabólico.
+
+Los sriptis, el informe, datos y demas archivos del proyecto se pueden obtener en el repositorio de GitHub [@jácome2025]: <https://github.com/juano3101/Jacome-Navarrete-Juan-PEC1>
 
 # Resultados
 
 ## Construcción del objeto *`SummarizedExperiment`*
 
-Lo primero se se realizó es el la construcción del *`SummarizedExperiment`*, para lo cual se importaron tres tablas.
+Lo primero se se realizó es el la construcción del *`SummarizedExperiment`*, para lo cual se importaron tres tablas necesarias: el ensayo, colData y el rowData. Además, se procedió a limpiar los datos, mantener solo las columnas deseadas, finalmente los valores faltantes fueron imputados con el método KNN, y no se eliminó ninguna muestra y ningún metabolito.
 
-1.  El ensayo: esta matriz contenía en las columnas las muestras y las filas los metabolitos.
-2.  El colData: contienía información sobre las muestras, como la fracción de leche y el sujeto a quien pertenece. Debe coincidir ocn la matriz de ensayo.
-3.  El rowData: contienía información sobre los metabolitos. En este caso se trata de la clasificación de los metabolismos según el la base de datos *Metabolics Workbench*.
+``` r
+# CARGAR MATRICES DE DATOS
+assay <- read.delim(params$assay, row.names = 1, check.names = FALSE)
+coldata <- read.delim(params$coldata, row.names = 1, check.names = FALSE)
+rowdata <- read.delim(params$rowdata, row.names = 1, check.names = FALSE)
 
-Además, se procedió a limpiar los datos, mantener solo las columnas deseadas, finalmente los valores faltantes fueron imputados con el método KNN, y no se eliminó ninguna muestra y ningún metabolito.
+# CREAR EL OBJETO SummarizedExperiment
+se <- SummarizedExperiment(assays = list(count = assay),
+  colData = coldata, rowData = rowdata)
+
+# SE REALIZA UNA IMPUTACIÓN CON EL METODO KNN, SIN REMOVER MUESTRAS
+se_imputed <- PomaImpute(se, method = "knn", zeros_as_na = TRUE, remove_na = FALSE)
+```
 
 ```{r SummarizedExperiment, warning = FALSE, message=FALSE, echo=FALSE}
 # CARGAR MATRICES DE DATOS
@@ -225,15 +266,13 @@ rowData(se_imputed) <- rowData(se)
 se
 ```
 
-El objeto `SummarizedExperiment` contiene un total de 158 metabolitos analizados en 12 muestras de leche humana. La matriz principal de datos, `count`, almacena las intensidades o abundancia de cada metabolito por muestra.
-
-Las filas representan metabolitos y estas variables tienen nformación adicional almacenada en `rowData`, que incluye campos como `Standardized_name`, `Formula`, `Super_class`, `Main_class` y `Sub_class`. Las columnas representan las muestras, etiquetadas como `BLS001A`, `BLS010A`, etc., y cuentan con metadatos asociados a través de `colData`, donde se especifica la fracción de leche (`Milk_fraction`) y el sujeto (`sujeto`) del que proviene cada muestra. Esta estructura permite integrar datos cuantitativos con anotaciones biológicas tanto a nivel de metabolitos como de muestras.
+El objeto `SummarizedExperiment` contiene un total de 158 metabolitos analizados en 12 muestras de leche humana. La matriz principal de datos, `count`, almacena las intensidades o abundancia de cada metabolito por muestra. Las columnas representan las muestras, etiquetadas como `BLS001A`, `BLS010A`, etc., y cuentan con metadatos asociados a través de `colData`, donde se especifica la fracción de leche (`Milk_fraction`) y la madre que dio la muestra (`sujeto`) del que proviene cada muestra.
 
 ```{r t2, echo=FALSE, warning=FALSE, message=FALSE}
 # Crear tabla por sujeto
 tabla_sujeto <- table(colData(se_imputed)$sujeto) %>%
   as.data.frame() %>%
-  setNames(c("Sujeto", "Frecuencia_sujeto"))
+  setNames(c("Madre", "Frecuencia_madre"))
 
 # Crear tabla por fracción
 tabla_fraccion <- table(colData(se_imputed)$Milk_fraction) %>%
@@ -255,22 +294,23 @@ tabla_combinada <- cbind(tabla_sujeto, tabla_fraccion)
 
 # Mostrar tabla con encabezado doble
 kable(tabla_combinada, booktabs = TRUE, align = "lcrr", 
-      caption = "Distribución de muestras por sujeto y por fracción de leche") %>%
+      caption = "Distribución de muestras por madre y fracción de leche") %>%
   kable_styling(latex_options = c("striped", "hold_position", "scale_down"),
                 position = "center", font_size = 10)
 ```
 
-La Tabla 2 muestra que cada uno de los cuatro sujetos (BLS001A, BLS002A, BLS003A y BLS010A) aportó exactamente tres muestras. Por su parte, la Tabla 3 que hay cuatro muestras por cada tipo de fracción: fat, skim y whole. Esta distribución homogénea es relevante para garantizar comparabilidad entre sujetos y fracciones en los análisis posteriores.
+La Tabla 2 muestra que cada uno de las cuatro madres (BLS001A, BLS002A, BLS003A y BLS010A) aportó exactamente tres muestras. Por su parte, la Tabla 3 que hay cuatro muestras por cada tipo de fracción: fat, skim y whole.
 
 ## Análisis de abundancia de metabolitos
 
-Para analizar la abundancia de metabolitos en las muestras, se seleccionaron los 30 metabolitos con mayor intensidad o abundancia y se compararon entre los distintos sujetos y las fracciones de leche (fat, skim y whole). Con el fin de obtener una visión más funcional de los perfiles metabolómicos, se realizó el mismo análisis agrupando los metabolitos según su clasificación química principal (Main class), basada en la base de datos de Metabolomics Workbench. A continuación, se presentan diagramas de barras apiladas que muestran la distribución de los metabolitos individuales y su clasificación funcional en cada fracción y sujeto.
+A continuación, se presentan diagramas de barras apiladas que muestran la distribución de los metabolitos individuales y su clasificación funcional en cada fracción y madre.
 
-```{r abundancia, warning = FALSE, message=FALSE, fig.width=12, fig.height=12, fig.align='center', echo=FALSE, fig.cap="Abundancia de metabolitos por fracción y por sujeto."}
+```{r abundancia, warning = FALSE, message=FALSE, fig.width=14, fig.height=10, fig.align='center', echo=FALSE, fig.cap="Abundancia de metabolitos por fracción y por sujeto. A: abundancia de metabolitos. B: abundancia por clasificación principal"}
 
-##ABUNDANCIA TOP 50#######
-# aplicar la función
+##ABUNDANCIA TOP 30#######
+# aplicar la función declarada para obtener los top 30 metabolitos
 se_top <- seleccionar_top_y_otros(se, top_n = 30)
+# aplicar la función para promediar la intensidad agrupada en fración y madre
 matriz_promedio_sujeto_top <- calcular_abundancia_por_sujeto(se_top)
 
 # Reordenar los niveles del factor 'metabolito'
@@ -282,119 +322,193 @@ orden_metabolitos <- matriz_promedio_sujeto_top %>%
 
 # Aplicar en todos los dataframes usados en gráficos
 matriz_promedio_sujeto_top$metabolito <- 
+  # conierte en factor los metabolitos
   factor(matriz_promedio_sujeto_top$metabolito, levels = orden_metabolitos)
 
-# Paleta de colores
+# Paleta de colores, para que others sea de color negro
 n_metab <- length(orden_metabolitos) - 1  # sin contar "Others"
 colores <- c("black", hue_pal()(n_metab))  # "Others" negro
 names(colores) <- orden_metabolitos
 
-# Abundancia absoluta por sujeto y fracción (top metabolitos)
+# gráfico bundancia absoluta por sujeto y fracción (top 30 metabolitos)
 ab_suj_top <- ggplot(matriz_promedio_sujeto_top, 
                      aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") + facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia absoluta por fracción y sujeto (Top metabolitos)",
+  labs(title = "Abundancia absoluta por fracción y madre (Top 30 metabolitos)",
        x = "Fracción de leche", y = "Media de intensidad") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.key.size = unit(0.5, "lines"), legend.position = "right") +
   guides(fill = guide_legend(ncol = 2))  +
-  scale_fill_manual(values = colores)
+  scale_fill_manual(values = colores) + #leyenda en dos columnas
+  theme(text = element_text(size = 10))
 
 ### ABUNDANCIA PROMEDIO POR CLASE
-#Crear los tres objetos
+#Crear el obejeto SE agrupado por Main_class, con la función creada
 se_mainclass  <- agrupar_por_clase(se_imputed, "Main_class")
-matriz_promedio_sujeto_mainclass  <- calcular_abundancia_por_sujeto(se_mainclass)
+# aplicar la función para promediar la intensidad agrupada en fración y madre
+matriz_promedio_sujeto_mainclass<- calcular_abundancia_por_sujeto(se_mainclass)
 
-# graficos para MAIN CLASE
+# gráficos de abundancia para MAIN CLASE
 ab_main_suj <- ggplot(matriz_promedio_sujeto_mainclass, 
                       aes(x = Milk_fraction, y = media, fill = metabolito)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sujeto, scales = "free_y") +
-  labs(title = "Abundancia absoluta promedio por fracción y sujeto (Main class)",
+  labs(title = "Abundancia absoluta promedio por fracción y madre (Main class)",
        x = "Fracción de leche", y = "Media de intensidad") +
-  theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-                            legend.key.size = unit(0.5, "lines"), 
-                            legend.position = "right") +
-  guides(fill = guide_legend(ncol = 2))
+  theme_minimal() +
+  guides(fill = guide_legend(ncol = 2)) + #leyenda en dos columnas+ 
+  theme(text = element_text(size = 12))
 
-
-ab_suj_top / ab_main_suj + plot_annotation(tag_levels = 'A') 
+# con el paquete patchwork se unen los gráficos
+# plot_annotation(tag_levels = 'A') enumera los gráficos
+ab_suj_top / ab_main_suj + plot_annotation(tag_levels = 'A')
 ```
 
-Las Figuras A y B presentan la abundancia absoluta de metabolitos en muestras de leche humana, separadas en tres fracciones: fat (fracción lipídica), skim (fracción acuosa) y whole (leche entera), para cuatro sujetos distintos.
+La Figura 1 muestra la abundancia absoluta de metabolitos en leche humana, separada en tres fracciones: lipídica (fat), acuosa (skim) y entera (whole), provenientes de cuatro mujeres.
 
-En la Figura A, se muestra la distribución de los 50 metabolitos más abundantes en cada combinación de fracción y sujeto. Se observa que la fracción skim tiende a presentar mayores niveles de varios metabolitos en comparación con fat o whole, especialmente en los sujetos BLS001A y BLS003A. Esto sugiere que una porción significativa de los metabolitos detectados tiene carácter hidrosoluble. Además, se evidencia variabilidad entre sujetos en la intensidad relativa de metabolitos individuales.
+La Figura 1.A presenta los 30 metabolitos más abundantes. Las fracciones acuosa y entera tienden a tener mayores concentraciones de metabolitos que la fracción lipídica en todas las mujeres, lo que sugiere una mayor concentración de compuestos hidrosolubles en la leche materna. Entre los metabolitos individuales, phosphocholine y L-carnitine fueron los más abundantes en las tres fracciones. En la fracción lipídica, también se observaron altos niveles de glycerophosphocholine y creatine. Estos resultados evidencian similitudes en los metabolitos más abundantes entre individuos, aunque con diferencias en la magnitud de sus intensidades.
 
-Por su parte, la Figura B agrupa los metabolitos por su clase química principal (Main class), lo que permite identificar patrones más generales. Se destacan las clases “Amino acids and peptides” y “Glycerophosphocholines” como las más abundantes en todas las fracciones y sujetos, lo que sugiere una alta representación de compuestos nitrogenados y fosfolípidos en la leche materna. La consistencia en estas clases entre fracciones y sujetos indica una estabilidad funcional en la composición química general de la leche, más allá de las diferencias individuales en metabolitos específicos.
+La Figura 1.B agrupa los metabolitos según su clasificación funcional principal (Main class), permitiendo una visualización más general de la composición química. Se destaca que los aminoácidos y péptidos, así como las colinas, son la clase más abundante en todas las fracciones y madres. Es importante mencionar que los Carbohidratos (mono y disacáridos) representaron entre el 1 y 2% de la composición de la leche en todas las muestras.
 
-## Comparación entre muestras
+## Análisis multivariante
 
-Primero es necesario normalizar
+Para poder tener más confianza en el análisis multivariante y reducir el efecto de variaciones debidos a la técnica, los datos fueron normalizados utilizando el método log-pareto con la función `PomaNorm()`del paquete POMA.
 
-```{r normalizar, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
+```{r norm, warning = FALSE, message=FALSE, echo=FALSE, fig.width=4, fig.height=2, fig.align='center', fig.cap="Distribución de intensidades normalizadas (log-pareto)"}
 
 ### NORMALIZAR DATOS
 se_normalized <- se_imputed %>% 
   PomaNorm(method = "log_pareto")
-
-# POR ALGUNA RAZÓN ELIMINA LAS VARIABLES DE METABOLITOS
+# CARGAR MATRICES DE DATOS
 rowData(se_normalized) <- rowData(se)
 
-se_normalized
 ```
 
-Ahora diagramas de cajas
+Una vez normalizado se observó que la mayoría de curvas de densidad están centradas en torno a cero, lo que indica que la normalización fue efectiva. También se obtuvo el número total de metabolitos detectados en cada fracción de leche, para las cuatro madres, utilizando los datos normalizados. Se ve claramente que las fracciones acuosa y entera presentan un mayor número de metabolitos en comparación con la fracción lipídica, lo cual concuerda con los patrones observados previamente en las gráficas de abundancia. (ANEXOS 1 y 2)
 
-```{r densidsad, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
-
-# grafico de densidad de datos
-# Densidad antes de la normalización
-den_no_normalizado <- PomaDensity(se_imputed, x = "features") +
-  labs(title = "Densidad de intensidades antes de la normalización") +
-  theme(legend.position = "none")
-
-# Densidad después de la normalización
-den_normalizado <- PomaDensity(se_normalized, x = "features") +
-  labs(title = "Densidad de intensidades después de la normalización") +
-  theme(legend.position = "none")
-
-# Unir gráficos con títulos
-den_no_normalizado / den_normalizado +
-  plot_annotation(tag_levels = 'A') # para poner etiquetas en los gráficos
-```
-
-Intensidad
-
-```{r Intensidad, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
-
-# Convertir a formato largo
-df_long <- as.data.frame(assay(se_normalized)) %>%
-  tibble::rownames_to_column("metabolito") %>%
-  pivot_longer(-metabolito, names_to = "muestra", values_to = "valor") %>%
-  left_join(as.data.frame(colData(se_normalized)) %>%
-              tibble::rownames_to_column("muestra"),
-            by = "muestra")
-
-# Gráfico de intensidad por sujeto y fracción
-intensidad_normalizada_sujeto <- ggplot(df_long, 
-                                        aes(x = Milk_fraction, y = valor, 
-                                            fill = Milk_fraction)) +
-  geom_boxplot(outlier.size = 0.5) +
-  facet_wrap(~ sujeto, scales = "free_y") +
-  labs(
-    title = "Distribución normalizada de intensidades por fracción y muestra",
-    x = "Fracción de leche",
-    y = "Intensidad normalizada"
-  ) +
-  theme_minimal() + theme(legend.position = "none") + 
-  scale_fill_manual(values = colores_fraccion)
-
+```{r heatmap, warning = FALSE, message=FALSE, fig.width=8, fig.height=5, fig.align='center', echo=FALSE, fig.cap="Heatmap de los 20 metabolitos más variables entre muestras"}
 # Extraer info y preparar
 matriz <- assay(se_normalized)
 metadata <- as.data.frame(colData(se_normalized)) %>%
   rownames_to_column("Muestra")
+
+#Calcular varianzas y seleccionar los top más variables
+varianzas <- apply(matriz, 1, var, na.rm = TRUE) # Calcular varianza por fila
+# Filtrar las que no son 0
+varianzas_filtradas <- varianzas[varianzas > 0]
+# Seleccionar los 30 más variables
+top_n <- min(20, length(varianzas_filtradas)) 
+# Nombres de los top 30
+top_metabolitos <- names(sort(varianzas_filtradas, decreasing = TRUE))[1:top_n] 
+# Filtrar la matriz para quedarme con los top 30
+matriz_top_var <- matriz[top_metabolitos, ] 
+
+# Anotaciones (Milk_fraction y sujeto)
+anotaciones <- as.data.frame(colData(se_normalized)) %>% # Extraer metadata
+  select(Milk_fraction, sujeto) # Seleccionar las columnas de interés
+rownames(anotaciones) <- colnames(se_normalized) # Asignar nombres de filas
+
+# colores para para la fraccion y los sujetos, que se definieron antes
+colores_para_heatmap <- list(
+  Milk_fraction = colores_fraccion,
+  sujeto = colores_sujeto)
+
+# Heatmap final
+heatmap <- pheatmap(matriz_top_var,
+           annotation_col = anotaciones,
+           annotation_colors = colores_para_heatmap,
+           show_rownames = TRUE,
+           show_colnames = FALSE,
+           cluster_rows = FALSE,
+           cluster_cols = TRUE,
+           color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
+           fontsize_row = 7) + theme(text = element_text(size = 12))
+```
+
+La Figura 2 muestra un heatmap de las intensidades normalizadas de los 20 metabolitos con mayor variabilidad entre las muestras. Se observan agrupamientos de muestras por madre, especialmente en BLS001A y BLS003A, así como diferencias claras entre fracciones de leche en metabolitos como los ácidos biliares conjugados (por ejemplo, Glycodeoxycholic.acid.GDCA_R2).
+
+Además, compuestos como Stachydrine (un alcaloide natural), METHYL.BETA.D.GALACTOSIDE (un derivado de galactosa), péptidos como L-Anserine y lípidos como LysoPC y LysoPE presentan una alta variabilidad tanto entre madres como entre fracciones. Esto sugiere que el perfil metabolómico de la leche humana está influenciado tanto por características individuales como por el tipo de fracción analizada.
+
+```{r pca, warning = FALSE, message=FALSE, fig.width=5, fig.height=4, fig.align='center', echo=FALSE, fig.cap="Análisis de componentes principales (PCA) de muestras de leche humana según metabolitos"}
+# realizar pca
+# Transponer la matriz para calcular pca para muestras
+matriz_pca <- t(assay(se_normalized)) 
+pca <- prcomp(matriz_pca, scale. = TRUE)
+
+# Extraer coordenadas del PCA
+pca_df <- as.data.frame(pca$x) %>% # Convertir a dataframe
+  rownames_to_column("Muestra") %>% # Añadir nombres de filas
+  left_join(as.data.frame(colData(se_normalized)) %>% # Añadir metadata
+              tibble::rownames_to_column("Muestra"), 
+            by = "Muestra") # Unir por la columna Muestra
+
+# Graficar PCA de las muestras
+biplot_pca_muestras  <-  ggplot(pca_df, aes(x = PC1, y = PC2, color = sujeto, 
+                                            shape = Milk_fraction, 
+                                            label = Muestra)) +
+  geom_point(size = 4) +
+  geom_text_repel(size = 3.5, max.overlaps = 100) +
+  labs(x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"),
+       y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "% var)")) +
+  theme_minimal() +
+  theme(legend.position = "right", text = element_text(size = 10)) +
+  scale_color_manual(values = colores_sujeto)
+
+biplot_pca_muestras
+```
+
+La Figura 3 muestra un análisis de componentes principales (PCA) basado en las intensidades de metabolitos en muestras de leche humana. Los dos primeros componentes explican el 66.3% de la variabilidad total. Se observan agrupamientos por madre, con las muestras de cada madre ubicadas próximas entre sí. Por lo contrario, no se evidencia una agrupación por fracción de leche, aunque la fracción grasa (fat) parece separarse de las demás. Esto sugiere que la composición metabolómica varía principalmente entre individuos, y en menor medida según la fracción de leche.
+
+# Discusión
+
+El presente análisis permitió caracterizar el perfil metabolómico de muestras de leche humana en las fracciones lipídica, acuosa y entera, procedentes de cuatro madres distintas, utilizando LC-MS. Para este estudio se utilizaron exclusivamente los datos obtenidos en modo de ionización positiva.
+
+Entre los metabolitos más abundantes se identificaron compuestos como phosphocholine y L-carnitine, presentes en todas las fracciones, en concordancia con otros estudios [@torrezlamberti2020; @hampel2021]. La phosphocholine es una forma abundante de colina en la leche materna, esencial para la síntesis de fosfolípidos y el desarrollo cerebral del lactante, particularmente en los primeros meses de vida. [@poulsen2022; @hampel2021]. La carnitina, por otro lado, facilita el transporte de ácidos grasos hacia las mitocondrias para la producción de energía [@poulsen2022; @maheshwari2022].
+
+Al agrupar los metabolitos por su clase funcional, se observó un predominio de aminoácidos y péptidos, a parte de colinas y glicerofosfocolinas que ya se menciono anteriormente. Algunas aproximaciones indican que la leche porcentadene un porcentaje de aminoácidos de entre el 5 y el 10 % del contenido total de nitrógeno [@moughan2024].
+
+La limitada detección de carbohidratos y ácidos grasos de cadena corta en este estudio puede atribuirse al uso exclusivo del modo de ionización positiva. Se ha demostrado que metabolitos de naturaleza ácida y polar presentan mayor eficiencia de ionización en modo negativo [@liigand2017]. Asimismo, las condiciones cromatográficas y el tipo de ionización seleccionados influyen directamente en la detección de metabolitos [@lei2011].
+
+Respecto a la variabilidad entre muestras, los análisis de abundancia, heatmap y PCA coincidieron que las diferencias entre madres fueron más marcadas que entre fracciones. Esta variabilidad podría deberse a diferencias fisiológicas, genéticas o ambientales, como la dieta materna, el perfil hormonal o el estilo de vida [@golan2020; @cortes-macías2021]. Estudios recientes también sugieren que variables como el tipo de parto o el nivel de estrés materno pueden afectar la composición metabólica de la leche [@juncker2025; @matharu2024].
+
+El heatmap de los 20 metabolitos más variables reveló que algunos compuestos, como ciertos ácidos biliares conjugados (por ejemplo, *Glycodeoxycholic.acid.GDCA_R2*), se concentran preferentemente en las fracciones lipídica o entera, en línea con su naturaleza hidrofóbica. Aunque sus concentraciones suelen ser bajas en condiciones fisiológicas, se ha documentado que ciertos fármacos pueden incrementar sus niveles en la leche materna, sin que esto represente un riesgo clínico significativo para el lactante [@simják2022]. Este hallazgo sugiere que tanto el tipo de fracción como las condiciones fisiológicas de la madre pueden modular el perfil de algunos metabolitos.
+
+Este estudio presenta algunas limitaciones. En primer lugar, el uso exclusivo del modo de ionización positiva probablemente limitó la detección de metabolitos relevantes como azúcares y ácidos orgánicos. En segundo lugar, el reducido número de sujetos (n = 4) impide generalizar los hallazgos a una población más amplia. En futuras investigaciones se recomienda aplicar modo dual de ionización (positivo y negativo) para lograr una cobertura metabolómica más completa. Asimismo, incluir un mayor número de madres y considerar variables como el estadio de lactancia, la dieta materna y el estado de salud podría enriquecer el análisis y permitir asociaciones más profundas con factores fisiológicos.
+
+En conjunto, los resultados indican que no hay un único factor que explique la variabilidad metabolómica, sino una interacción compleja entre el sujeto y la fracción de leche. Este hallazgo es consistente con estudios previos que destacan la alta complejidad y variabilidad de la composición de la leche humana, subrayando la importancia de analizar múltiples niveles para comprender su perfil funcional.
+
+# Conclusiones
+
+El presente análisis permitió caracterizar el perfil metabolómico de leche humana en tres fracciones, revelando una mayor abundancia de metabolitos en las fracciones acuosa y entera. Se identificaron metabolitos dominantes como phosphocholine y L-carnitine, presentes en todas las fracciones y sujetos. Al agrupar por clase funcional, se observó un predominio de aminoácidos, péptidos y colinas. El análisis multivariante evidenció que las diferencias entre madres fueron más relevantes que las diferencias entre fracciones de leche, lo que sugiere una fuerte influencia relacionada posiblemente con factores fisiológicos, genéticos o ambientales.
+
+Asimismo, se identificaron metabolitos con afinidad específica por ciertas fracciones, como los ácidos biliares conjugados, que se concentraron en la fracción grasa. El uso exclusivo del modo de ionización positiva limitó la detección de metabolitos polares y ácidos, lo que resalta la necesidad de aplicar enfoques analíticos complementarios en futuros estudios. Estos hallazgos subrayan la complejidad de la leche humana y la importancia de un análisis integral para comprender su composición y función.
+
+# Anexos
+
+## ANEXO 1
+
+```{r desidad_norm, warning = FALSE, message=FALSE, echo=FALSE, fig.width=4, fig.height=2, fig.align='center', fig.cap="Distribución de intensidades normalizadas (log-pareto)"}
+
+### NORMALIZAR DATOS
+se_normalized <- se_imputed %>% 
+  PomaNorm(method = "log_pareto")
+# CARGAR MATRICES DE DATOS
+rowData(se_normalized) <- rowData(se)
+
+# Gráfico de densidad después de la normalización
+den_normalizado <- PomaDensity(se_normalized, x = "features") +
+  theme(legend.position = "none") + theme(text = element_text(size = 8))
+
+den_normalizado
+```
+
+## ANEXO 2
+
+```{r num_met, warning = FALSE, message=FALSE, echo=FALSE, fig.width=4, fig.height=1.5, fig.align='center', echo=FALSE, fig.cap="Número de metabolitos detectados por fracción de leche y madre"}
+
+# Extraer info y preparar
+#matriz <- assay(se_normalized)
+#metadata <- as.data.frame(colData(se_normalized)) %>%
+#  rownames_to_column("Muestra")
 
 # Calcular metabolitos detectados (abundancia > 0) por muestra
 # Calcular número de metabolitos detectados por muestra (2 es para cada col.) 
@@ -411,89 +525,12 @@ num_metabolitos_sujeto <- ggplot(metadata,
                                      group = sujeto, color = sujeto)) +
     geom_line(size = 1.1) +
     geom_point(size = 2) +
-    labs(title = "Metabolitos detectados por fracción de leche y sujeto",
-         x = "Fracción de leche", y = "Número de metabolitos detectados") +
-    theme_minimal() + scale_color_manual(values = colores_sujeto)
+    labs(x = "Fracción de leche", y = "Núm. metabolitos detectados") +
+    theme_minimal() + scale_color_manual(values = colores_sujeto) + 
+  theme(text = element_text(size = 8))
 
-intensidad_normalizada_sujeto / num_metabolitos_sujeto +
-  plot_annotation(tag_levels = 'A')
+num_metabolitos_sujeto 
 
 ```
-
-```{r heatmap, warning = FALSE, message=FALSE, fig.width=12, fig.height=7, fig.align='center'}
-
-#Calcular varianzas y seleccionar los top más variables
-varianzas <- apply(matriz, 1, var, na.rm = TRUE) # Calcular varianza por fila
-# Filtrar las que no son 0
-varianzas_filtradas <- varianzas[varianzas > 0]
-# Seleccionar los 30 más variables
-top_n <- min(30, length(varianzas_filtradas)) 
-# Nombres de los top 30
-top_metabolitos <- names(sort(varianzas_filtradas, decreasing = TRUE))[1:top_n] 
-# Filtrar la matriz para quedarme con los top 30
-matriz_top_var <- matriz[top_metabolitos, ] 
-
-# Anotaciones (Milk_fraction y sujeto)
-anotaciones <- as.data.frame(colData(se_normalized)) %>% # Extraer metadata
-  select(Milk_fraction, sujeto) # Seleccionar las columnas de interés
-rownames(anotaciones) <- colnames(se_normalized) # Asignar nombres de filas
-
-# colores para para la fraccion y los sujetos, que se definieron antes
-colores_para_heatmap <- list(
-  Milk_fraction = colores_fraccion,
-  sujeto = colores_sujeto
-)
-
-# Heatmap final
-heatmap <- pheatmap(matriz_top_var,
-           annotation_col = anotaciones,
-           annotation_colors = colores_para_heatmap,
-           show_rownames = TRUE,
-           show_colnames = FALSE,
-           cluster_rows = TRUE,
-           cluster_cols = TRUE,
-           color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
-           main = "Heatmap de los 30 metabolitos más variables",
-           fontsize_row = 7)
-
-heatmap
-
-# realizar pca
-# Transponer la matriz para calcular pca para muestras
-matriz_pca <- t(assay(se_normalized)) 
-pca <- prcomp(matriz_pca, scale. = TRUE)
-
-# Extraer coordenadas del PCA
-pca_df <- as.data.frame(pca$x) %>% # Convertir a dataframe
-  rownames_to_column("Muestra") %>% # Añadir nombres de filas
-  left_join(as.data.frame(colData(se_normalized)) %>% # Añadir metadata
-              tibble::rownames_to_column("Muestra"), 
-            by = "Muestra") # Unir por la columna Muestra
-
-
-# Graficar PCA de las muestras
-biplot_pca_muestras  <-  ggplot(pca_df, aes(x = PC1, y = PC2, color = sujeto, 
-                                            shape = Milk_fraction, 
-                                            label = Muestra)) +
-  geom_point(size = 4) +
-  geom_text_repel(size = 3.5, max.overlaps = 100) +
-  labs(title = "PCA de muestras basado en intensidades",
-       x = paste0("PC1 (", round(summary(pca)$importance[2, 1] * 100, 1), "% var)"),
-       y = paste0("PC2 (", round(summary(pca)$importance[2, 2] * 100, 1), "% var)")) +
-  theme_minimal() +
-  theme(legend.position = "right") + scale_color_manual(values = colores_sujeto)
-
-biplot_pca_muestras
-```
-
-# Discusión
-
-<!-- Reflexión crítica: limitaciones del estudio, posibles fuentes de error, sugerencias para trabajos futuros. -->
-
-# Conclusiones
-
-<!-- Resumen claro y conciso de los hallazgos clave. -->
 
 # Referencias
-
-<!-- Bibliografía (si aplica) y enlace al repositorio de GitHub -->
