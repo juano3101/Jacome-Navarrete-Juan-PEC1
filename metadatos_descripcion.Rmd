@@ -1,0 +1,58 @@
+---
+title: "Metadatos"
+author: "Juan Jácome"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyr)
+library(knitr)
+library(kableExtra)
+```
+
+# Descripción de metadatos
+
+Este archivo contiene la descripción de las variables asociadas a cada muestra analizada en el estudio **"Global metabolomics of human milk fractions"** (ID: **ST000957**), disponible en el repositorio público de Metabolomics Workbench.
+
+El estudio incluye un total de 12 muestras de leche humana, recolectadas de cuatro madres. Para cada madre se obtuvieron tres fracciones de leche: lipídica, acuosa y entera.
+
+🔗 Acceso al estudio original:\
+<https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000957>
+
+A continuación se describen las variables contenidas en los metadatos de las muestras y metabolítos:
+
+```{r coldata, echo=FALSE}
+# Crear data frame con descripción de metadatos
+descripcion_metadatos <- data.frame(
+  Variable = c("sujeto", "Milk_fraction"),
+  Descripción = c(
+    "Identificador del sujeto (madre donadora) de cada muestra",
+    "Fracción de leche correspondiente a la muestra: lipídica, acuosa o entera"
+  )
+)
+
+# Mostrar tabla con kable
+knitr::kable(descripcion_metadatos,
+             caption = "Descripción de las variables asociadas a las muestras",
+             col.names = c("Variable", "Descripción"))
+```
+
+```{r rowdata, echo=FALSE}
+# Crear data frame con descripción de rowData
+descripcion_rowdata <- data.frame(
+  Variable = c("Standardized_name", "Formula", "Super_class", "Main_class", "Sub_class"),
+  Descripción = c(
+    "Nombre estandarizado del metabolito",
+    "Fórmula molecular del compuesto",
+    "Clase química general del metabolito (supercategoría)",
+    "Clase principal química del metabolito",
+    "Subcategoría química del metabolito"
+  )
+)
+
+# Mostrar tabla con kable
+knitr::kable(descripcion_rowdata,
+             caption = "Descripción de las variables de anotación de los metabolitos",
+             col.names = c("Variable", "Descripción"))
+
+```
